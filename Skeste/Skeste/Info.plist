@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Skeste uses your location to measure distance, speed, and vertical descent while you track a run.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Skeste uses the motion sensor when you lay your phone on a slope to measure the angle.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose photos and videos from your library to share with the Skeste community.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Skeste saves your Ridge Lab share cards to your photo library.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Skeste uses the camera when you capture media to share on the mountain feed.</string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

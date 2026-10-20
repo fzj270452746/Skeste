@@ -1,0 +1,149 @@
+{
+  "appPolicies": {
+    "eula": "",
+    "policies": [
+      {
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": ""
+      }
+    ]
+  },
+  "identifier": "SKESTE2026",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "00000001",
+      "localizations": [
+        {
+          "description": "A single fresh line at first light. Send a little stoke to the rider who shared it.",
+          "displayName": "First Tracks",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "gyhanqbvrlzuybir",
+      "referenceName": "Skeste Gift - First Tracks",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "00000002",
+      "localizations": [
+        {
+          "description": "A warm cup at the mid-mountain hut. A small thank-you for the edit.",
+          "displayName": "Cocoa Stop",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "odeutdnmnqisqndw",
+      "referenceName": "Skeste Gift - Cocoa Stop",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "00000003",
+      "localizations": [
+        {
+          "description": "Skip the line and ride to the top. A lift of support for their next drop.",
+          "displayName": "Gondola Ride",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.skte.Skeste.gift.03",
+      "referenceName": "Skeste Gift - Gondola Ride",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "00000004",
+      "localizations": [
+        {
+          "description": "A full face-shot of cold smoke. Send the storm their way.",
+          "displayName": "Powder Cloud",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "ksukbigoclfuqnit",
+      "referenceName": "Skeste Gift - Powder Cloud",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "9.99",
+      "familyShareable": false,
+      "internalID": "00000005",
+      "localizations": [
+        {
+          "description": "Light up the night ride. A neon salute for the line that stopped your scroll.",
+          "displayName": "Aurora Glow",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "rsdzrirsexedwehw",
+      "referenceName": "Skeste Gift - Aurora Glow",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "19.99",
+      "familyShareable": false,
+      "internalID": "00000006",
+      "localizations": [
+        {
+          "description": "Crown the high point. For the edit that made you check the forecast.",
+          "displayName": "Peak Crown",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "awltfrzboukvvkut",
+      "referenceName": "Skeste Gift - Peak Crown",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "49.99",
+      "familyShareable": false,
+      "internalID": "00000007",
+      "localizations": [
+        {
+          "description": "The summit, delivered. Serious love for a serious line.",
+          "displayName": "Alpine Summit",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "ylobmffhfttiusfz",
+      "referenceName": "Skeste Gift - Alpine Summit",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "99.99",
+      "familyShareable": false,
+      "internalID": "00000008",
+      "localizations": [
+        {
+          "description": "Leave a mark on the mountain. The ultimate nod to a legend in the making.",
+          "displayName": "Ski Legend",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "pnlcjpgkypyexaqk",
+      "referenceName": "Skeste Gift - Ski Legend",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_billingIssuesEnabled": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}

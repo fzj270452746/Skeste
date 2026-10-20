@@ -1,0 +1,6 @@
+framework module Pods_Skeste {
+  umbrella header "Pods-Skeste-umbrella.h"
+
+  export *
+  module * { export * }
+}
