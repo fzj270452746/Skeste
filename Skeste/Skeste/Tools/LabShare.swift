@@ -20,7 +20,7 @@ enum LabShare {
 
     static func postToFeed(caption: String, tags: [String], from controller: BaseViewController, completion: ((Bool) -> Void)? = nil) {
         controller.requireLogin {
-            guard AppStore.shared.addPost(kind: .note, caption: caption, tags: tags, media: []) != nil else {
+            guard SKDataStore.shared.addPost(kind: .note, caption: caption, tags: tags, media: []) != nil else {
                 SkesteToast.show("Could not post this to the feed.", style: .error)
                 completion?(false)
                 return
@@ -55,8 +55,8 @@ enum LabShareCard {
             drawDivider(context: context, y: 742, width: size.width - margin * 2, x: margin)
 
             draw("SEASON", font: SkesteFont.demibold(12), color: Palette.muted, at: CGPoint(x: margin, y: 790), kern: 2)
-            draw("\(Int(AppStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(34), color: Palette.text, at: CGPoint(x: margin, y: 812))
-            draw("\(AppStore.shared.runs.count) RUNS", font: SkesteFont.mono(15, weight: .bold), color: Palette.secondary, at: CGPoint(x: margin + 292, y: 826))
+            draw("\(Int(SKDataStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(34), color: Palette.text, at: CGPoint(x: margin, y: 812))
+            draw("\(SKDataStore.shared.runs.count) RUNS", font: SkesteFont.mono(15, weight: .bold), color: Palette.secondary, at: CGPoint(x: margin + 292, y: 826))
 
             draw("READ THE HILL.", font: SkesteFont.demibold(15), color: Palette.cyan, at: CGPoint(x: margin, y: size.height - 106), kern: 2)
             draw("SKESTE  ·  RIDGE LAB", font: SkesteFont.mono(11, weight: .medium), color: Palette.muted, at: CGPoint(x: margin, y: size.height - 74), kern: 1.4)

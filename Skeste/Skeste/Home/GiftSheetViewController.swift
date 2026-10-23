@@ -246,7 +246,7 @@ final class GiftSheetViewController: UIViewController {
                 card.setBusy(false)
                 switch result {
                 case .success:
-                    AppStore.shared.addGift(postID: self.postID, giftID: gift.id)
+                    SKDataStore.shared.addGift(postID: self.postID, giftID: gift.id)
                     SkesteHaptics.success()
                     GiftBurstView.show(gift: gift)
                     self.onGiftSent?()

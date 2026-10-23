@@ -45,7 +45,7 @@ final class RunLogViewController: BaseViewController {
     }
 
     private func buildBody() {
-        let runs = AppStore.shared.runs
+        let runs = SKDataStore.shared.runs
         guard !runs.isEmpty else {
             let empty = EmptyStateView(symbol: "figure.skiing.downhill",
                                        kicker: "The log is open",
@@ -74,7 +74,7 @@ final class RunLogViewController: BaseViewController {
         card.addSubview(kicker)
         kicker.snp.makeConstraints { $0.leading.top.equalToSuperview().offset(16) }
 
-        let vertical = UILabel(text: "\(Int(AppStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(44), color: Palette.text)
+        let vertical = UILabel(text: "\(Int(SKDataStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(44), color: Palette.text)
         vertical.richTracking(-1)
         card.addSubview(vertical)
         vertical.snp.makeConstraints { make in
@@ -197,7 +197,7 @@ final class RunLogViewController: BaseViewController {
     }
 
     private func buildFooter() {
-        let note = UILabel(text: "Runs live on this device. Export a card to share the line with your circle.", font: SkesteFont.body(10), color: Palette.muted, lines: 0)
+        let note = UILabel(text: "Runs live on this device. Export a card to share the line with your crew.", font: SkesteFont.body(10), color: Palette.muted, lines: 0)
         note.textAlignment = .center
         note.lineSpacing(2)
         contentStack.addArrangedSubview(note)

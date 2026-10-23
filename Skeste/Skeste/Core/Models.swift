@@ -86,42 +86,97 @@ struct GiftRecord: Codable, Identifiable, Hashable {
     }
 }
 
-struct ChatMessage: Codable, Identifiable, Hashable {
-    var id: String
-    var senderID: String
-    var text: String
-    var createdAt: Date
+enum CoachingTopic: String, Codable, CaseIterable, Hashable {
+    case technique
+    case gear
+    case terrain
+    case confidence
+    case other
 
-    init(id: String = UUID().uuidString, senderID: String, text: String, createdAt: Date = Date()) {
-        self.id = id
-        self.senderID = senderID
-        self.text = text
-        self.createdAt = createdAt
+    var title: String {
+        switch self {
+        case .technique: return "Technique"
+        case .gear: return "Gear"
+        case .terrain: return "Terrain & safety"
+        case .confidence: return "Confidence"
+        case .other: return "Something else"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .technique: return "figure.skiing.downhill"
+        case .gear: return "wrench.and.screwdriver.fill"
+        case .terrain: return "mountain.2.fill"
+        case .confidence: return "brain.head.profile"
+        case .other: return "ellipsis.bubble.fill"
+        }
     }
 }
 
-struct Conversation: Codable, Identifiable, Hashable {
-    var id: String
-    var participantIDs: [String]
-    var messages: [ChatMessage]
-    var updatedAt: Date
-    var unreadCount: Int
+enum BookingStatus: String, Codable, Hashable {
+    case pending
+    case accepted
+    case declined
+    case cancelled
+    case completed
 
-    func otherUserID(for currentUserID: String) -> String? {
-        participantIDs.first(where: { $0 != currentUserID })
+    var title: String {
+        switch self {
+        case .pending: return "WAITING FOR COACH"
+        case .accepted: return "SESSION CONFIRMED"
+        case .declined: return "DECLINED"
+        case .cancelled: return "CANCELLED"
+        case .completed: return "COMPLETED"
+        }
     }
+
+    var isOpen: Bool {
+        self == .pending || self == .accepted
+    }
+}
+
+struct CoachProfile: Codable, Identifiable, Hashable {
+    /// The coach's rider id. The profile is keyed by the same id as `User`.
+    var id: String
+    var headline: String
+    var specialties: [String]
+    var certifications: [String]
+    var languages: [String]
+    var yearsExperience: Int
+    var rating: Double
+    var sessionCount: Int
+    var responseTime: String
+    var availability: String
+
+    var userID: String { id }
+}
+
+struct CoachBooking: Codable, Identifiable, Hashable {
+    var id: String
+    var learnerID: String
+    var coachUserID: String
+    var topic: CoachingTopic
+    var details: String
+    var scheduledAt: Date
+    var durationMinutes: Int
+    var status: BookingStatus
+    var createdAt: Date
+    var respondedAt: Date?
+    var lastCallAt: Date?
+    var lastCallDuration: TimeInterval?
+    var lastCallBy: String?
+
+    var isOpen: Bool { status.isOpen }
 }
 
 struct SocialGraph: Codable {
     var followingIDs: [String]
     var followerIDs: [String]
-    var friendIDs: [String]
-    var incomingRequestIDs: [String]
-    var outgoingRequestIDs: [String]
     var likedPostIDs: [String]
     var blockedUserIDs: [String]
 
-    static let empty = SocialGraph(followingIDs: [], followerIDs: [], friendIDs: [], incomingRequestIDs: [], outgoingRequestIDs: [], likedPostIDs: [], blockedUserIDs: [])
+    static let empty = SocialGraph(followingIDs: [], followerIDs: [], likedPostIDs: [], blockedUserIDs: [])
 }
 
 enum AccountProvider: String, Codable {
@@ -152,7 +207,8 @@ struct AppState: Codable {
     var users: [User]
     var posts: [Post]
     var comments: [Comment]
-    var conversations: [Conversation]
+    var bookings: [CoachBooking]
+    var coachProfiles: [CoachProfile]
     var accounts: [LocalAccount]
     var socialGraphs: [String: SocialGraph]
     var currentUserID: String?
@@ -160,19 +216,20 @@ struct AppState: Codable {
     var gifts: [GiftRecord]
 
     enum CodingKeys: String, CodingKey {
-        case users, posts, comments, conversations, accounts, socialGraphs, currentUserID, runs, gifts
+        case users, posts, comments, bookings, coachProfiles, accounts, socialGraphs, currentUserID, runs, gifts
     }
 }
 
 extension AppState {
-    /// Saved states written before gifts existed have no `gifts` key, so decode it leniently
-    /// instead of throwing away the whole store and reseeding.
+    /// Saved states written before gifts, bookings or coaching profiles existed have no keys
+    /// for them, so decode those leniently instead of throwing away the whole store.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         users = try container.decode([User].self, forKey: .users)
         posts = try container.decode([Post].self, forKey: .posts)
         comments = try container.decode([Comment].self, forKey: .comments)
-        conversations = try container.decode([Conversation].self, forKey: .conversations)
+        bookings = try container.decodeIfPresent([CoachBooking].self, forKey: .bookings) ?? []
+        coachProfiles = try container.decodeIfPresent([CoachProfile].self, forKey: .coachProfiles) ?? []
         accounts = try container.decode([LocalAccount].self, forKey: .accounts)
         socialGraphs = try container.decode([String: SocialGraph].self, forKey: .socialGraphs)
         currentUserID = try container.decodeIfPresent(String.self, forKey: .currentUserID)
@@ -232,17 +289,24 @@ extension Date {
         return formatter.string(from: self)
     }
 
-    var chatTime: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        if Calendar.current.isDateInToday(self) {
-            formatter.dateFormat = "h:mm a"
-        } else if Calendar.current.isDateInYesterday(self) {
-            return "Yesterday"
+    /// "Today · 9:00 AM", "Tomorrow · 9:00 AM", "Fri, Oct 30 · 9:00 AM".
+    var bookingStamp: String {
+        let calendar = Calendar.current
+        let day: String
+        if calendar.isDateInToday(self) {
+            day = "Today"
+        } else if calendar.isDateInTomorrow(self) {
+            day = "Tomorrow"
         } else {
-            formatter.dateFormat = "MMM d"
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US")
+            formatter.dateFormat = "EEE, MMM d"
+            day = formatter.string(from: self)
         }
-        return formatter.string(from: self)
+        let time = DateFormatter()
+        time.locale = Locale(identifier: "en_US")
+        time.dateFormat = "h:mm a"
+        return "\(day) · \(time.string(from: self))"
     }
 }
 

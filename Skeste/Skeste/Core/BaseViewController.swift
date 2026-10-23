@@ -72,7 +72,7 @@ class BaseViewController: UIViewController {
     }
 
     func requireLogin(completion: @escaping () -> Void) {
-        if AppStore.shared.isLoggedIn {
+        if SKDataStore.shared.isLoggedIn {
             completion()
             return
         }

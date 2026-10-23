@@ -164,8 +164,8 @@ final class SettingsViewController: BaseViewController {
     }
 
     private func signature() -> String {
-        guard let user = AppStore.shared.currentUser else { return "guest" }
-        return "\(user.displayName)-\(user.bio)-\(user.avatarFileName ?? user.avatarAsset)-\(AppStore.shared.currentHomeCounts())"
+        guard let user = SKDataStore.shared.currentUser else { return "guest" }
+        return "\(user.displayName)-\(user.bio)-\(user.avatarFileName ?? user.avatarAsset)-\(SKDataStore.shared.currentHomeCounts())"
     }
 
     private func rebuild() {
@@ -173,7 +173,7 @@ final class SettingsViewController: BaseViewController {
             contentStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        if AppStore.shared.isLoggedIn {
+        if SKDataStore.shared.isLoggedIn {
             buildSignedIn()
         } else {
             buildSignedOut()
@@ -212,7 +212,7 @@ final class SettingsViewController: BaseViewController {
     }
 
     private func buildSignedIn() {
-        guard let user = AppStore.shared.currentUser else { return }
+        guard let user = SKDataStore.shared.currentUser else { return }
         _ = buildHeader(titleTop: "PERSONAL", titleBottom: "YOUR BASE.")
 
         let profileCard = UIControl()
@@ -258,13 +258,13 @@ final class SettingsViewController: BaseViewController {
         statsRow.spacing = 8
         statsRow.distribution = .fillEqually
         let followers = SettingsStatTile(title: "FOLLOWERS", symbol: "person.2.fill")
-        followers.setValue(AppStore.shared.currentFollowers.count.compactCount)
+        followers.setValue(SKDataStore.shared.currentFollowers.count.compactCount)
         followers.addAction(UIAction { [weak self] _ in self?.push(ConnectionsViewController(mode: .followers)) }, for: .touchUpInside)
         let following = SettingsStatTile(title: "FOLLOWING", symbol: "arrow.up.right")
-        following.setValue(AppStore.shared.currentFollowing.count.compactCount)
+        following.setValue(SKDataStore.shared.currentFollowing.count.compactCount)
         following.addAction(UIAction { [weak self] _ in self?.push(ConnectionsViewController(mode: .following)) }, for: .touchUpInside)
         let lines = SettingsStatTile(title: "LINES", symbol: "square.grid.2x2")
-        lines.setValue("\(AppStore.shared.currentPostCount)")
+        lines.setValue("\(SKDataStore.shared.currentPostCount)")
         lines.addAction(UIAction { [weak self] _ in self?.push(MyWorksViewController()) }, for: .touchUpInside)
         statsRow.addArrangedSubview(followers)
         statsRow.addArrangedSubview(following)
@@ -285,11 +285,11 @@ final class SettingsViewController: BaseViewController {
 
         buildSectionLabel("YOUR STASH")
         let stash = sectionCard()
-        let likes = SettingsRowView(title: "Liked lines", detail: "\(AppStore.shared.state.socialGraphs[user.id]?.likedPostIDs.count ?? 0)", symbol: "heart.fill")
+        let likes = SettingsRowView(title: "Liked lines", detail: "\(SKDataStore.shared.state.socialGraphs[user.id]?.likedPostIDs.count ?? 0)", symbol: "heart.fill")
         likes.addAction(UIAction { [weak self] _ in self?.push(MyLikesViewController()) }, for: .touchUpInside)
-        let follow = SettingsRowView(title: "Following", detail: "\(AppStore.shared.currentFollowing.count)", symbol: "person.2")
+        let follow = SettingsRowView(title: "Following", detail: "\(SKDataStore.shared.currentFollowing.count)", symbol: "person.2")
         follow.addAction(UIAction { [weak self] _ in self?.push(ConnectionsViewController(mode: .following)) }, for: .touchUpInside)
-        let works = SettingsRowView(title: "My works", detail: "\(AppStore.shared.currentPostCount)", symbol: "rectangle.stack.fill")
+        let works = SettingsRowView(title: "My works", detail: "\(SKDataStore.shared.currentPostCount)", symbol: "rectangle.stack.fill")
         works.addAction(UIAction { [weak self] _ in self?.push(MyWorksViewController()) }, for: .touchUpInside)
         addRow(likes, to: stash)
         addRow(follow, to: stash)
@@ -335,7 +335,7 @@ final class SettingsViewController: BaseViewController {
             make.centerX.equalToSuperview()
             make.top.equalTo(lock.snp.bottom).offset(18)
         }
-        let message = UILabel(text: "Sign in to build your profile, keep your favorite lines, and open a private channel with your circle.", font: SkesteFont.body(13), color: Palette.secondary, lines: 0)
+        let message = UILabel(text: "Sign in to build your profile, keep your favorite lines, and book a private video session with a coach.", font: SkesteFont.body(13), color: Palette.secondary, lines: 0)
         message.textAlignment = .center
         message.lineSpacing(3)
         panel.addSubview(message)
@@ -415,10 +415,10 @@ final class SettingsViewController: BaseViewController {
     }
 
     private func confirmLogout() {
-        showConfirm(title: "Leave base camp?", message: "Your saved session will be cleared on this device. Your posts and circle stay right where they are.", confirmTitle: "Log out") { [weak self] in
+        showConfirm(title: "Leave base camp?", message: "Your saved session will be cleared on this device. Your posts and coaching sessions stay right where they are.", confirmTitle: "Log out") { [weak self] in
             let loader = SkesteLoadingView.present()
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                AppStore.shared.logout()
+                SKDataStore.shared.logout()
                 loader.dismiss {
                     self?.rebuild()
                     SkesteToast.show("Logged out. See you on the next storm.", style: .info)
@@ -428,10 +428,10 @@ final class SettingsViewController: BaseViewController {
     }
 
     private func confirmDelete() {
-        showConfirm(title: "Delete your account?", message: "Your profile, posts, comments, and conversations will be removed from this device. This action cannot be undone.", confirmTitle: "Delete account", destructive: true) { [weak self] in
+        showConfirm(title: "Delete your account?", message: "Your profile, posts, comments, and coaching sessions will be removed from this device. This action cannot be undone.", confirmTitle: "Delete account", destructive: true) { [weak self] in
             let loader = SkesteLoadingView.present()
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                AppStore.shared.deleteAccount()
+                SKDataStore.shared.deleteAccount()
                 loader.dismiss {
                     self?.rebuild()
                     SkesteToast.show("Your account has been deleted.", style: .success)
@@ -441,7 +441,7 @@ final class SettingsViewController: BaseViewController {
     }
 }
 
-extension AppStore {
+extension SKDataStore {
     func currentHomeCounts() -> String {
         "\(currentFollowers.count)-\(currentFollowing.count)-\(currentPostCount)"
     }

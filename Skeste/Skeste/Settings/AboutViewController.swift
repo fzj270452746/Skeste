@@ -62,7 +62,7 @@ final class AboutViewController: BaseViewController {
         stack.addArrangedSubview(title)
         stack.setCustomSpacing(12, after: title)
 
-        let intro = UILabel(text: "Skeste is a home for the people who wake up early, read the forecast like a love letter, and still get butterflies at the top of a new line. The feed is built for motion. The tools are built for the mountain. The circle is built for trust.", font: SkesteFont.body(14), color: Palette.secondary, lines: 0)
+        let intro = UILabel(text: "Skeste is a home for the people who wake up early, read the forecast like a love letter, and still get butterflies at the top of a new line. The feed is built for motion. The tools are built for the mountain. The coach line is built for trust.", font: SkesteFont.body(14), color: Palette.secondary, lines: 0)
         intro.textAlignment = .center
         intro.lineSpacing(4)
         stack.addArrangedSubview(intro)
@@ -70,7 +70,7 @@ final class AboutViewController: BaseViewController {
 
         addFeature(stack, symbol: "play.rectangle.fill", kicker: "THE DROP", title: "Lines worth watching", body: "A living edit of ski and snowboard moments from the ridge: full-send lines, quiet dawn laps, and the stories behind them.")
         addFeature(stack, symbol: "scope", kicker: "RIDGE LAB", title: "Tools with a purpose", body: "Snow Desk, live run tracking, wax matching, terrain checks, and ski fitting. Five real tools made for the way you ride.")
-        addFeature(stack, symbol: "bubble.left.and.bubble.right.fill", kicker: "THE CIRCLE", title: "Private by design", body: "No random chats. A private line only opens after a friend request is accepted. Everyone else stays on the mountain.")
+        addFeature(stack, symbol: "video.fill", kicker: "COACH LINE", title: "Learn from a guide", body: "Browse certified coaches, describe the technique or terrain you want to work on, and meet over a private video session once they accept.")
         addFeature(stack, symbol: "sparkles", kicker: "SEND THE STOKE", title: "Support the line", body: "Eight mountain gifts let you back the riders who make you check the forecast. Purchases are handled securely through the App Store.")
 
         let legalCard = UIView()

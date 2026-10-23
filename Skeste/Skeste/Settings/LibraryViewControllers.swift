@@ -82,7 +82,7 @@ final class LibraryPostRow: UIControl {
         preview.configure(with: post.media.first)
         kindLabel.text = post.kind == .reel ? "LINE DROP" : "FIELD NOTE"
         titleLabel.text = post.caption.isEmpty ? "Untitled line" : post.caption
-        let author = AppStore.shared.user(withID: post.authorID)?.displayName ?? "You"
+        let author = SKDataStore.shared.user(withID: post.authorID)?.displayName ?? "You"
         metaLabel.text = "\(author)  ·  \(post.createdAt.skesteRelative)  ·  \(post.likeCount.compactCount) LIKES"
         actionButton.setTitle(" \(actionTitle)", for: .normal)
         actionButton.setImage(UIImage(systemName: actionSymbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold)), for: .normal)
@@ -149,7 +149,7 @@ final class ConnectionRow: UIControl {
         name.text = user.displayName
         handle.text = user.handle
         meta.text = user.homeResort
-        let following = AppStore.shared.isFollowing(userID: user.id)
+        let following = SKDataStore.shared.isFollowing(userID: user.id)
         if mode == .following {
             actionButton.setTitle(" UNFOLLOW", for: .normal)
             actionButton.setTitleColor(Palette.secondary, for: .normal)
@@ -284,8 +284,8 @@ final class MyLikesViewController: LibraryBaseViewController {
 
     override func rebuild() {
         clearContent()
-        guard AppStore.shared.isLoggedIn else { return }
-        let posts = AppStore.shared.sortedPosts.filter { AppStore.shared.isLiked(postID: $0.id) }
+        guard SKDataStore.shared.isLoggedIn else { return }
+        let posts = SKDataStore.shared.sortedPosts.filter { SKDataStore.shared.isLiked(postID: $0.id) }
         addTitle("LIKED\nLINES.", kicker: "SAVED TO YOUR STASH", countText: "\(posts.count)")
         guard !posts.isEmpty else {
             addEmpty("Nothing saved yet. Tap the heart on a line that stays with you and it will land here.")
@@ -295,7 +295,7 @@ final class MyLikesViewController: LibraryBaseViewController {
             let row = LibraryPostRow()
             row.configure(post: post, actionTitle: "UNLIKE", actionColor: Palette.magenta, actionSymbol: "heart.slash")
             row.onAction = { [weak self] in
-                _ = AppStore.shared.toggleLike(postID: post.id)
+                _ = SKDataStore.shared.toggleLike(postID: post.id)
                 self?.rebuild()
                 SkesteToast.show("Removed from your liked lines.", style: .info)
             }
@@ -317,8 +317,8 @@ final class MyWorksViewController: LibraryBaseViewController {
 
     override func rebuild() {
         clearContent()
-        guard let user = AppStore.shared.currentUser else { return }
-        let posts = AppStore.shared.posts(by: user.id)
+        guard let user = SKDataStore.shared.currentUser else { return }
+        let posts = SKDataStore.shared.posts(by: user.id)
         addTitle("MY\nWORKS.", kicker: "DROPPED BY YOU", countText: "\(posts.count)")
         guard !posts.isEmpty else {
             addEmpty("Your stash is empty. Head to the plus and drop your first line on the mountain.")
@@ -329,7 +329,7 @@ final class MyWorksViewController: LibraryBaseViewController {
             row.configure(post: post, actionTitle: "DELETE", actionColor: Palette.danger, actionSymbol: "trash")
             row.onAction = { [weak self] in
                 self?.showConfirm(title: "Delete this line?", message: "This post and its comments will be removed for good.", confirmTitle: "Delete post", destructive: true) {
-                    AppStore.shared.deletePost(id: post.id)
+                    SKDataStore.shared.deletePost(id: post.id)
                     self?.rebuild()
                     SkesteToast.show("Your line has been removed.", style: .success)
                 }
@@ -357,20 +357,20 @@ final class ConnectionsViewController: LibraryBaseViewController {
 
     override func rebuild() {
         clearContent()
-        guard AppStore.shared.isLoggedIn else { return }
-        let users = mode == .followers ? AppStore.shared.currentFollowers : AppStore.shared.currentFollowing
+        guard SKDataStore.shared.isLoggedIn else { return }
+        let users = mode == .followers ? SKDataStore.shared.currentFollowers : SKDataStore.shared.currentFollowing
         addTitle(mode.title, kicker: mode.kicker, countText: "\(users.count)")
         guard !users.isEmpty else {
-            addEmpty(mode == .followers ? "No followers yet. Keep sharing lines and the right people will find you." : "You're not following anyone yet. Discover riders from the conversation page or under any post.")
+            addEmpty(mode == .followers ? "No followers yet. Keep sharing lines and the right people will find you." : "You're not following anyone yet. Discover riders from the coaching page or under any post.")
             return
         }
         for user in users {
             let row = ConnectionRow()
             row.configure(user: user, mode: mode)
             row.onAction = { [weak self] in
-                _ = AppStore.shared.toggleFollow(userID: user.id)
+                _ = SKDataStore.shared.toggleFollow(userID: user.id)
                 self?.rebuild()
-                let stillFollowing = AppStore.shared.isFollowing(userID: user.id)
+                let stillFollowing = SKDataStore.shared.isFollowing(userID: user.id)
                 SkesteToast.show(stillFollowing ? "Following \(user.displayName)." : "You unfollowed \(user.displayName).", style: .info)
             }
             row.onOpen = { [weak self] in

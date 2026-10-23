@@ -266,7 +266,7 @@ final class SnowDeskViewController: BaseViewController {
     }
 
     private func initialIndex() -> Int {
-        guard let name = AppStore.shared.currentUser?.homeResort,
+        guard let name = SKDataStore.shared.currentUser?.homeResort,
               let index = displayedResorts.firstIndex(where: { resort in
                   resort.name.lowercased() == SnowLibrary.canonicalName(name).lowercased()
               }) else {

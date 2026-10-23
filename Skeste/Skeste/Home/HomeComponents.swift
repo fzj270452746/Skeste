@@ -533,7 +533,7 @@ final class PostCardView: UIView {
 
     func configure(post: Post, index: Int) {
         self.post = post
-        let author = AppStore.shared.user(withID: post.authorID)
+        let author = SKDataStore.shared.user(withID: post.authorID)
         avatar.configure(user: author)
         nameLabel.text = author?.displayName ?? "Skeste Rider"
         metaLabel.text = "\(post.createdAt.skesteRelative)  ·  \(post.location)"
@@ -573,8 +573,8 @@ final class PostCardView: UIView {
             if let mediaAspect { mediaAspect.isActive = false }
         }
 
-        likeButton.configure(count: post.likeCount, active: AppStore.shared.isLiked(postID: post.id), symbol: AppStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
-        commentButton.configure(count: AppStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
+        likeButton.configure(count: post.likeCount, active: SKDataStore.shared.isLiked(postID: post.id), symbol: SKDataStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
+        commentButton.configure(count: SKDataStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
         giftButton.configure(count: post.giftCount, active: false, symbol: "gift")
         accessibilityLabel = "\(author?.displayName ?? "Rider"), \(post.caption)"
     }
@@ -741,7 +741,7 @@ final class SpotlightCell: UICollectionViewCell {
     func configure(post: Post, index: Int, active: Bool) {
         self.post = post
         self.isActive = active
-        let author = AppStore.shared.user(withID: post.authorID)
+        let author = SKDataStore.shared.user(withID: post.authorID)
         avatar.configure(user: author)
         nameLabel.text = author?.displayName ?? "Skeste Rider"
         handleLabel.text = "\(author?.handle ?? "@skeste")  ·  \(post.createdAt.skesteRelative)"
@@ -752,8 +752,8 @@ final class SpotlightCell: UICollectionViewCell {
         if let first = post.media.first {
             media.configure(with: first, allowsPlayback: active)
         }
-        likeButton.configure(count: post.likeCount, active: AppStore.shared.isLiked(postID: post.id), symbol: AppStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
-        commentButton.configure(count: AppStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
+        likeButton.configure(count: post.likeCount, active: SKDataStore.shared.isLiked(postID: post.id), symbol: SKDataStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
+        commentButton.configure(count: SKDataStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
         giftButton.configure(count: post.giftCount, active: false, symbol: "gift")
     }
 

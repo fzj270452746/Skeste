@@ -4,7 +4,7 @@ import CryptoKit
 extension Notification.Name {
     static let skesteAuthChanged = Notification.Name("skeste.auth.changed")
     static let skesteContentChanged = Notification.Name("skeste.content.changed")
-    static let skesteChatsChanged = Notification.Name("skeste.chats.changed")
+    static let skesteCoachingChanged = Notification.Name("skeste.coaching.changed")
 }
 
 enum AuthOutcome {
@@ -12,8 +12,8 @@ enum AuthOutcome {
     case failure(String)
 }
 
-final class AppStore {
-    static let shared = AppStore()
+final class SKDataStore {
+    static let shared = SKDataStore()
 
     private(set) var state: AppState
     private let storageKey = "skeste.state.v1"
@@ -32,6 +32,16 @@ final class AppStore {
         }
         if state.gifts.isEmpty {
             state.gifts = Self.seededGifts(for: state.posts, users: state.users)
+        }
+        if !UserDefaults.standard.bool(forKey: Self.coachingSeedKey) {
+            if state.coachProfiles.isEmpty {
+                state.coachProfiles = Self.seededCoachProfiles()
+            }
+            if state.bookings.isEmpty {
+                state.bookings = Self.seededBookings()
+            }
+            UserDefaults.standard.set(true, forKey: Self.coachingSeedKey)
+            save()
         }
         if !UserDefaults.standard.bool(forKey: Self.demoCountsMigrationKey) {
             Self.applyDemoCounts(to: &state)
@@ -72,38 +82,25 @@ final class AppStore {
         return state.users.filter { ids.contains($0.id) }
     }
 
-    var currentFriends: [User] {
-        let ids = currentGraph().friendIDs
-        return state.users.filter { ids.contains($0.id) }
-    }
-
-    var incomingRequests: [User] {
-        let ids = currentGraph().incomingRequestIDs
-        return state.users.filter { ids.contains($0.id) }
-    }
-
-    var outgoingRequests: [User] {
-        let ids = currentGraph().outgoingRequestIDs
-        return state.users.filter { ids.contains($0.id) }
-    }
-
     var currentPostCount: Int {
         guard let id = state.currentUserID else { return 0 }
         return state.posts.filter { $0.authorID == id }.count
     }
 
-    var suggestions: [User] {
-        guard let current = currentUser else { return [] }
-        let graph = currentGraph()
-        let hidden = Set(graph.friendIDs + graph.blockedUserIDs)
-        return state.users.filter { $0.id != current.id && !hidden.contains($0.id) }
+    /// Coaches the current viewer can book. Blocked riders stay out of the line.
+    var coaches: [CoachProfile] {
+        let blocked = currentGraph().blockedUserIDs
+        return state.coachProfiles
+            .filter { !blocked.contains($0.userID) }
+            .sorted(by: { $0.rating == $1.rating ? $0.sessionCount > $1.sessionCount : $0.rating > $1.rating })
     }
 
-    var conversations: [Conversation] {
+    /// Bookings made by the signed-in learner, newest first.
+    var myBookings: [CoachBooking] {
         guard let id = state.currentUserID else { return [] }
-        return state.conversations
-            .filter { $0.participantIDs.contains(id) }
-            .sorted(by: { $0.updatedAt > $1.updatedAt })
+        return state.bookings
+            .filter { $0.learnerID == id }
+            .sorted(by: { $0.createdAt > $1.createdAt })
     }
 
     func user(withID id: String?) -> User? {
@@ -155,27 +152,8 @@ final class AppStore {
         currentGraph().followingIDs.contains(userID)
     }
 
-    func isFriend(userID: String) -> Bool {
-        currentGraph().friendIDs.contains(userID)
-    }
-
-    func hasIncomingRequest(from userID: String) -> Bool {
-        currentGraph().incomingRequestIDs.contains(userID)
-    }
-
-    func hasOutgoingRequest(to userID: String) -> Bool {
-        currentGraph().outgoingRequestIDs.contains(userID)
-    }
-
     func isBlocked(userID: String) -> Bool {
         currentGraph().blockedUserIDs.contains(userID)
-    }
-
-    func canChat(with userID: String) -> Bool {
-        guard let current = currentUser, current.id != userID else { return false }
-        let graph = currentGraph()
-        if graph.blockedUserIDs.contains(userID) { return false }
-        return graph.friendIDs.contains(userID)
     }
 
     func followerCount(for user: User) -> Int {
@@ -192,15 +170,25 @@ final class AppStore {
         return user.baseFollowing
     }
 
-    func conversation(with userID: String) -> Conversation? {
-        guard let current = state.currentUserID else { return nil }
-        return state.conversations.first(where: {
-            $0.participantIDs.contains(current) && $0.participantIDs.contains(userID)
-        })
+    func coachProfile(for userID: String) -> CoachProfile? {
+        state.coachProfiles.first(where: { $0.userID == userID })
     }
 
-    func lastMessage(in conversation: Conversation) -> ChatMessage? {
-        conversation.messages.max(by: { $0.createdAt < $1.createdAt })
+    func isCoach(userID: String) -> Bool {
+        coachProfile(for: userID) != nil
+    }
+
+    func booking(withID id: String) -> CoachBooking? {
+        state.bookings.first(where: { $0.id == id })
+    }
+
+    /// The learner's still-open session with a particular coach, if there is one.
+    func openBooking(with coachUserID: String) -> CoachBooking? {
+        guard let learner = state.currentUserID else { return nil }
+        return state.bookings
+            .filter { $0.learnerID == learner && $0.coachUserID == coachUserID && $0.isOpen }
+            .sorted(by: { $0.createdAt > $1.createdAt })
+            .first
     }
 
     @discardableResult
@@ -238,89 +226,83 @@ final class AppStore {
         return !isFollowing
     }
 
-    func sendFriendRequest(to userID: String) -> Bool {
-        guard let current = state.currentUserID, current != userID else { return false }
-        guard user(withID: userID) != nil else { return false }
-        var graph = currentGraph()
-        guard !graph.blockedUserIDs.contains(userID) else { return false }
-        guard !graph.friendIDs.contains(userID), !graph.outgoingRequestIDs.contains(userID) else { return false }
-        guard !graph.incomingRequestIDs.contains(userID) else { return false }
-        graph.outgoingRequestIDs.append(userID)
-        updateGraph(graph)
+    // MARK: - Coaching bookings
+
+    /// Records the learner's request as pending. The coach's decision is not
+    /// simulated in this build: a booking only becomes callable after the status
+    /// is moved to `.accepted` by the coach side or a backend.
+    @discardableResult
+    func requestBooking(coachUserID: String, topic: CoachingTopic, details: String, scheduledAt: Date, durationMinutes: Int) -> CoachBooking? {
+        guard let learner = state.currentUserID,
+              learner != coachUserID,
+              user(withID: learner) != nil,
+              user(withID: coachUserID) != nil,
+              coachProfile(for: coachUserID) != nil,
+              !currentGraph().blockedUserIDs.contains(coachUserID) else { return nil }
+        if let open = openBooking(with: coachUserID) { return open }
+        let trimmed = details.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 10 else { return nil }
+        let booking = CoachBooking(
+            id: "booking_\(UUID().uuidString)",
+            learnerID: learner,
+            coachUserID: coachUserID,
+            topic: topic,
+            details: trimmed,
+            scheduledAt: scheduledAt,
+            durationMinutes: durationMinutes,
+            status: .pending,
+            createdAt: Date(),
+            respondedAt: nil,
+            lastCallAt: nil,
+            lastCallDuration: nil,
+            lastCallBy: nil
+        )
+        state.bookings.insert(booking, at: 0)
         save()
-        NotificationCenter.default.post(name: .skesteContentChanged, object: nil)
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
+        return booking
+    }
+
+    /// Manual status transitions, kept for future coach-side or backend integration.
+    @discardableResult
+    func acceptBooking(id: String) -> Bool {
+        guard let index = state.bookings.firstIndex(where: { $0.id == id && $0.status == .pending }) else { return false }
+        state.bookings[index].status = .accepted
+        state.bookings[index].respondedAt = Date()
+        save()
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
         return true
     }
 
-    @discardableResult
-    func acceptFriendRequest(from userID: String) -> Conversation? {
-        guard let current = state.currentUserID, user(withID: userID) != nil else { return nil }
-        var graph = currentGraph()
-        guard graph.incomingRequestIDs.contains(userID) else { return nil }
-        graph.incomingRequestIDs.removeAll(where: { $0 == userID })
-        if !graph.friendIDs.contains(userID) {
-            graph.friendIDs.append(userID)
-        }
-        if !graph.followerIDs.contains(userID) {
-            graph.followerIDs.append(userID)
-        }
-        updateGraph(graph)
-        let conversation = ensureConversation(with: userID)
+    func declineBooking(id: String) {
+        guard let index = state.bookings.firstIndex(where: { $0.id == id && $0.status == .pending }) else { return }
+        state.bookings[index].status = .declined
+        state.bookings[index].respondedAt = Date()
         save()
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
-        NotificationCenter.default.post(name: .skesteContentChanged, object: nil)
-        return conversation
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
-    func declineFriendRequest(from userID: String) {
-        var graph = currentGraph()
-        graph.incomingRequestIDs.removeAll(where: { $0 == userID })
-        updateGraph(graph)
+    func cancelBooking(id: String) {
+        guard let index = state.bookings.firstIndex(where: { $0.id == id && $0.isOpen }) else { return }
+        state.bookings[index].status = .cancelled
         save()
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
-    @discardableResult
-    func ensureConversation(with userID: String) -> Conversation? {
-        guard state.currentUserID != nil, canChat(with: userID) else { return nil }
-        if let existing = conversation(with: userID) {
-            return existing
-        }
-        guard let current = state.currentUserID else { return nil }
-        let conversation = Conversation(
-            id: "conv_\(UUID().uuidString)",
-            participantIDs: [current, userID],
-            messages: [],
-            updatedAt: Date(),
-            unreadCount: 0
-        )
-        state.conversations.append(conversation)
+    func recordCallStart(bookingID: String, by userID: String) {
+        guard let index = state.bookings.firstIndex(where: { $0.id == bookingID && $0.status == .accepted }) else { return }
+        state.bookings[index].lastCallAt = Date()
+        state.bookings[index].lastCallBy = userID
         save()
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
-        return conversation
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
-    func conversation(withID id: String) -> Conversation? {
-        state.conversations.first(where: { $0.id == id })
-    }
-
-    func sendMessage(conversationID: String, text: String) {
-        guard let current = state.currentUserID else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        guard let index = state.conversations.firstIndex(where: { $0.id == conversationID && $0.participantIDs.contains(current) }) else { return }
-        let message = ChatMessage(senderID: current, text: trimmed)
-        state.conversations[index].messages.append(message)
-        state.conversations[index].updatedAt = Date()
-        state.conversations[index].unreadCount = 0
+    func recordCallEnd(bookingID: String, duration: TimeInterval) {
+        guard let index = state.bookings.firstIndex(where: { $0.id == bookingID }) else { return }
+        state.bookings[index].lastCallAt = Date()
+        state.bookings[index].lastCallDuration = duration
         save()
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
-    }
-
-    func markConversationRead(id: String) {
-        guard let index = state.conversations.firstIndex(where: { $0.id == id }) else { return }
-        guard state.conversations[index].unreadCount != 0 else { return }
-        state.conversations[index].unreadCount = 0
-        save()
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
     func addComment(postID: String, text: String) -> Comment? {
@@ -419,13 +401,10 @@ final class AppStore {
         state.posts.removeAll(where: { $0.authorID == userID })
         state.comments.removeAll(where: { $0.authorID == userID || removedPostIDs.contains($0.postID) })
         state.gifts.removeAll(where: { $0.senderID == userID || removedPostIDs.contains($0.postID) })
-        state.conversations.removeAll(where: { $0.participantIDs.contains(userID) })
+        state.bookings.removeAll(where: { $0.learnerID == userID || $0.coachUserID == userID })
         for key in state.socialGraphs.keys {
             state.socialGraphs[key]?.followingIDs.removeAll(where: { $0 == userID })
             state.socialGraphs[key]?.followerIDs.removeAll(where: { $0 == userID })
-            state.socialGraphs[key]?.friendIDs.removeAll(where: { $0 == userID })
-            state.socialGraphs[key]?.incomingRequestIDs.removeAll(where: { $0 == userID })
-            state.socialGraphs[key]?.outgoingRequestIDs.removeAll(where: { $0 == userID })
         }
         if state.currentUserID != nil {
             var graph = currentGraph()
@@ -436,13 +415,7 @@ final class AppStore {
         }
         save()
         NotificationCenter.default.post(name: .skesteContentChanged, object: nil)
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
-    }
-
-    func deleteConversation(id: String) {
-        state.conversations.removeAll(where: { $0.id == id })
-        save()
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
     func saveRun(_ run: RunRecord) {
@@ -508,16 +481,7 @@ final class AppStore {
         )
         state.users.append(user)
         state.accounts.append(LocalAccount(id: "acct_\(UUID().uuidString)", username: normalized, passwordHash: Self.hash(password), userID: userID, provider: .local, appleID: nil))
-        let requests: [String] = ["u_luna", "u_kai"].filter { id in self.user(withID: id) != nil }
-        state.socialGraphs[userID] = SocialGraph(
-            followingIDs: [],
-            followerIDs: [],
-            friendIDs: [],
-            incomingRequestIDs: requests,
-            outgoingRequestIDs: [],
-            likedPostIDs: [],
-            blockedUserIDs: []
-        )
+        state.socialGraphs[userID] = .empty
         state.currentUserID = userID
         save()
         NotificationCenter.default.post(name: .skesteAuthChanged, object: nil)
@@ -558,16 +522,7 @@ final class AppStore {
         )
         state.users.append(user)
         state.accounts.append(LocalAccount(id: "acct_\(UUID().uuidString)", username: username.lowercased(), passwordHash: "", userID: userID, provider: .apple, appleID: appleID))
-        let requests: [String] = ["u_luna", "u_kai"].filter { id in self.user(withID: id) != nil }
-        state.socialGraphs[userID] = SocialGraph(
-            followingIDs: [],
-            followerIDs: [],
-            friendIDs: [],
-            incomingRequestIDs: requests,
-            outgoingRequestIDs: [],
-            likedPostIDs: [],
-            blockedUserIDs: []
-        )
+        state.socialGraphs[userID] = .empty
         state.currentUserID = userID
         save()
         NotificationCenter.default.post(name: .skesteAuthChanged, object: nil)
@@ -579,7 +534,7 @@ final class AppStore {
         save()
         NotificationCenter.default.post(name: .skesteAuthChanged, object: nil)
         NotificationCenter.default.post(name: .skesteContentChanged, object: nil)
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
     func deleteAccount() {
@@ -592,7 +547,7 @@ final class AppStore {
         save()
         NotificationCenter.default.post(name: .skesteAuthChanged, object: nil)
         NotificationCenter.default.post(name: .skesteContentChanged, object: nil)
-        NotificationCenter.default.post(name: .skesteChatsChanged, object: nil)
+        NotificationCenter.default.post(name: .skesteCoachingChanged, object: nil)
     }
 
     private func currentGraph() -> SocialGraph {
@@ -657,6 +612,7 @@ final class AppStore {
     }
 
     private static let demoCountsMigrationKey = "skeste.demoCounts.v2"
+    private static let coachingSeedKey = "skeste.coaching.seeded.v1"
 
     /// Keeps persisted demo accounts and posts aligned with the current seed,
     /// so existing installs pick up the rebalanced audience and view counts.
@@ -738,47 +694,10 @@ final class AppStore {
             }
         }
 
-        let conversationLuna = Conversation(
-            id: "conv_luna",
-            participantIDs: ["u_me", "u_luna"],
-            messages: [
-                ChatMessage(id: "msg_l1", senderID: "u_luna", text: "You up for the north face tomorrow? The forecast looks clean.", createdAt: now.addingTimeInterval(-70 * 60)),
-                ChatMessage(id: "msg_l2", senderID: "u_me", text: "I'm in. Meet at the tram at 7?", createdAt: now.addingTimeInterval(-57 * 60)),
-                ChatMessage(id: "msg_l3", senderID: "u_luna", text: "7:10. I need coffee first.", createdAt: now.addingTimeInterval(-44 * 60)),
-                ChatMessage(id: "msg_l4", senderID: "u_luna", text: "Bring the wide lens.", createdAt: now.addingTimeInterval(-21 * 60))
-            ],
-            updatedAt: now.addingTimeInterval(-21 * 60),
-            unreadCount: 1
-        )
-        let conversationKai = Conversation(
-            id: "conv_kai",
-            participantIDs: ["u_me", "u_kai"],
-            messages: [
-                ChatMessage(id: "msg_k1", senderID: "u_me", text: "That landing clip is going up tonight.", createdAt: now.addingTimeInterval(-3 * 3600)),
-                ChatMessage(id: "msg_k2", senderID: "u_kai", text: "Finally. The internet isn't ready.", createdAt: now.addingTimeInterval(-2.7 * 3600)),
-                ChatMessage(id: "msg_k3", senderID: "u_kai", text: "Neither was my knee.", createdAt: now.addingTimeInterval(-2.6 * 3600))
-            ],
-            updatedAt: now.addingTimeInterval(-2.6 * 3600),
-            unreadCount: 0
-        )
-        let conversationSofia = Conversation(
-            id: "conv_sofia",
-            participantIDs: ["u_me", "u_sofia"],
-            messages: [
-                ChatMessage(id: "msg_s1", senderID: "u_sofia", text: "Saved you a spot on the rope team. Early start.", createdAt: now.addingTimeInterval(-27 * 3600)),
-                ChatMessage(id: "msg_s2", senderID: "u_me", text: "Wouldn't miss it.", createdAt: now.addingTimeInterval(-26.5 * 3600))
-            ],
-            updatedAt: now.addingTimeInterval(-26.5 * 3600),
-            unreadCount: 0
-        )
-
         let graphs: [String: SocialGraph] = [
             "u_me": SocialGraph(
                 followingIDs: ["u_luna", "u_kai", "u_sofia", "u_noah", "u_theo"],
                 followerIDs: ["u_luna", "u_kai", "u_sofia", "u_noah", "u_ava"],
-                friendIDs: ["u_luna", "u_kai", "u_sofia"],
-                incomingRequestIDs: ["u_ava"],
-                outgoingRequestIDs: [],
                 likedPostIDs: ["p3", "p5"],
                 blockedUserIDs: []
             )
@@ -788,12 +707,117 @@ final class AppStore {
             users: users,
             posts: posts,
             comments: comments,
-            conversations: [conversationLuna, conversationKai, conversationSofia],
+            bookings: seededBookings(),
+            coachProfiles: seededCoachProfiles(),
             accounts: [LocalAccount(id: "acct_test", username: "test", passwordHash: hash("123456"), userID: "u_me", provider: .local, appleID: nil)],
             socialGraphs: graphs,
             currentUserID: nil,
             runs: [],
             gifts: seededGifts(for: posts, users: users)
         )
+    }
+
+    /// The riders who teach. Each profile points at a seeded rider so the coaching
+    /// screen can reuse the same avatars, profiles and follow graph as the feed.
+    static func seededCoachProfiles() -> [CoachProfile] {
+        [
+            CoachProfile(
+                id: "u_luna",
+                headline: "Freeride technique for steep, committing lines.",
+                specialties: ["Steep skiing", "Edge control", "Line choice"],
+                certifications: ["CSIA Level 3", "AIARE 2"],
+                languages: ["English", "French"],
+                yearsExperience: 9,
+                rating: 4.9,
+                sessionCount: 214,
+                responseTime: "Usually replies in minutes",
+                availability: "Mornings · Chamonix & remote"
+            ),
+            CoachProfile(
+                id: "u_kai",
+                headline: "Park progression and storm-day confidence.",
+                specialties: ["Park", "Freestyle", "Air awareness"],
+                certifications: ["CASI Level 3", "Park Coach"],
+                languages: ["English"],
+                yearsExperience: 7,
+                rating: 4.8,
+                sessionCount: 168,
+                responseTime: "Usually replies in under an hour",
+                availability: "Afternoons · Whistler & remote"
+            ),
+            CoachProfile(
+                id: "u_sofia",
+                headline: "Ski touring, rope work and alpine decision making.",
+                specialties: ["Ski touring", "Mountaineering", "Avalanche safety"],
+                certifications: ["IFMGA Guide", "AIARE Pro"],
+                languages: ["English", "Swedish"],
+                yearsExperience: 12,
+                rating: 5.0,
+                sessionCount: 132,
+                responseTime: "Usually replies same day",
+                availability: "Weekends · Åre & remote"
+            ),
+            CoachProfile(
+                id: "u_noah",
+                headline: "Big-mountain reads and backcountry line planning.",
+                specialties: ["Big mountain", "Splitboard", "Backcountry"],
+                certifications: ["AMGA Apprentice", "AIARE 2"],
+                languages: ["English"],
+                yearsExperience: 11,
+                rating: 4.9,
+                sessionCount: 96,
+                responseTime: "Usually replies same day",
+                availability: "Storm windows · Jackson Hole & remote"
+            ),
+            CoachProfile(
+                id: "u_ivy",
+                headline: "Avalanche rescue, snowpack literacy and safe travel.",
+                specialties: ["Avalanche safety", "Rescue", "Snowpack"],
+                certifications: ["Avalanche Canada", "Wilderness RN"],
+                languages: ["English"],
+                yearsExperience: 8,
+                rating: 4.9,
+                sessionCount: 148,
+                responseTime: "Usually replies in minutes",
+                availability: "Daily · Revelstoke & remote"
+            ),
+            CoachProfile(
+                id: "u_theo",
+                headline: "Carving, grip and the small drills that change everything.",
+                specialties: ["Carving", "Moguls", "Drills"],
+                certifications: ["CSIA Level 2", "Race Coach"],
+                languages: ["English", "Italian"],
+                yearsExperience: 6,
+                rating: 4.7,
+                sessionCount: 203,
+                responseTime: "Usually replies in under an hour",
+                availability: "Mornings · Cortina & remote"
+            )
+        ]
+    }
+
+    /// One already-confirmed session for the demo account so the call entry is visible
+    /// right after signing in; every new request starts from the booking form.
+    static func seededBookings() -> [CoachBooking] {
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        let scheduled = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+        return [
+            CoachBooking(
+                id: "booking_luna_seed",
+                learnerID: "u_me",
+                coachUserID: "u_luna",
+                topic: .technique,
+                details: "I keep losing grip on steep, icy entries. I'd like a few drills I can repeat solo, and a plan for the next storm cycle.",
+                scheduledAt: scheduled,
+                durationMinutes: 45,
+                status: .accepted,
+                createdAt: Date().addingTimeInterval(-2 * 3600),
+                respondedAt: Date().addingTimeInterval(-90 * 60),
+                lastCallAt: nil,
+                lastCallDuration: nil,
+                lastCallBy: nil
+            )
+        ]
     }
 }

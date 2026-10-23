@@ -165,6 +165,7 @@ final class UserProfileViewController: BaseViewController {
     }
 
     override func setupView() {
+        NotificationCenter.default.addObserver(self, selector: #selector(coachingChanged), name: .skesteCoachingChanged, object: nil)
         buildHeader()
         scrollView.showsVerticalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .never
@@ -191,7 +192,7 @@ final class UserProfileViewController: BaseViewController {
             rebuild()
             return
         }
-        if AppStore.shared.user(withID: userID) == nil {
+        if SKDataStore.shared.user(withID: userID) == nil {
             navigationController?.popToRootViewController(animated: true)
             return
         }
@@ -207,7 +208,7 @@ final class UserProfileViewController: BaseViewController {
     override func contentDidChange() {
         guard isViewLoaded, view.window != nil else { return }
         if presentedViewController == nil {
-            if AppStore.shared.user(withID: userID) == nil {
+            if SKDataStore.shared.user(withID: userID) == nil {
                 navigationController?.popToRootViewController(animated: true)
             } else {
                 rebuild()
@@ -216,8 +217,10 @@ final class UserProfileViewController: BaseViewController {
     }
 
     private func signature() -> String {
-        guard let user = AppStore.shared.user(withID: userID) else { return "missing" }
-        return "\(user.displayName)-\(user.bio)-\(user.avatarFileName ?? user.avatarAsset)-\(AppStore.shared.posts(by: userID).count)-\(AppStore.shared.isFollowing(userID: userID))-\(AppStore.shared.isFriend(userID: userID))-\(AppStore.shared.hasOutgoingRequest(to: userID))-\(AppStore.shared.hasIncomingRequest(from: userID))-\(AppStore.shared.canChat(with: userID))-\(AppStore.shared.currentUser?.id ?? "guest")"
+        guard let user = SKDataStore.shared.user(withID: userID) else { return "missing" }
+        let coach = SKDataStore.shared.coachProfile(for: userID) != nil
+        let booking = SKDataStore.shared.openBooking(with: userID)?.status.rawValue ?? "none"
+        return "\(user.displayName)-\(user.bio)-\(user.avatarFileName ?? user.avatarAsset)-\(SKDataStore.shared.posts(by: userID).count)-\(SKDataStore.shared.isFollowing(userID: userID))-\(coach)-\(booking)-\(SKDataStore.shared.currentUser?.id ?? "guest")"
     }
 
     private func buildHeader() {
@@ -250,13 +253,13 @@ final class UserProfileViewController: BaseViewController {
     }
 
     private func rebuild() {
-        guard let user = AppStore.shared.user(withID: userID) else { return }
+        guard let user = SKDataStore.shared.user(withID: userID) else { return }
         didBuild = true
         contentStack.arrangedSubviews.forEach {
             contentStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        let isSelf = user.id == AppStore.shared.currentUser?.id
+        let isSelf = user.id == SKDataStore.shared.currentUser?.id
         (view.viewWithTag(701) as? UIButton)?.isHidden = isSelf
 
         let hero = UIView()
@@ -294,27 +297,30 @@ final class UserProfileViewController: BaseViewController {
 
         let handle = UILabel(text: user.handle, font: SkesteFont.demibold(11), color: Palette.cyan)
         handle.textAlignment = .center
-        hero.addSubview(handle)
-        handle.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.top.equalTo(name.snp.bottom).offset(1)
-        }
-
         let traits = UILabel(text: user.traitLine, font: SkesteFont.medium(11), color: Palette.secondary)
         traits.textAlignment = .center
-        hero.addSubview(traits)
-        traits.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.top.equalTo(handle.snp.bottom).offset(7)
-        }
-
         let resort = UILabel(text: user.homeResort.uppercased(), font: SkesteFont.demibold(8), color: Palette.muted)
         resort.tracked(1.5)
         resort.textAlignment = .center
-        hero.addSubview(resort)
-        resort.snp.makeConstraints { make in
+
+        let metaStack = UIStackView()
+        metaStack.axis = .vertical
+        metaStack.alignment = .center
+        metaStack.spacing = 3
+        metaStack.addArrangedSubview(handle)
+        if let coach = SKDataStore.shared.coachProfile(for: user.id) {
+            let badge = SkesteTagLabel(text: "COACH  ·  \(coach.specialties.prefix(2).joined(separator: " / ").uppercased())", tint: Palette.lime, fill: Palette.lime.withAlphaComponent(0.12))
+            badge.insets = UIEdgeInsets(top: 4, left: 9, bottom: 4, right: 9)
+            metaStack.addArrangedSubview(badge)
+            metaStack.setCustomSpacing(7, after: badge)
+        }
+        metaStack.setCustomSpacing(7, after: handle)
+        metaStack.addArrangedSubview(traits)
+        metaStack.addArrangedSubview(resort)
+        hero.addSubview(metaStack)
+        metaStack.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
-            make.top.equalTo(traits.snp.bottom).offset(5)
+            make.top.equalTo(name.snp.bottom).offset(1)
             make.bottom.equalToSuperview()
         }
         contentStack.addArrangedSubview(hero)
@@ -328,10 +334,10 @@ final class UserProfileViewController: BaseViewController {
         statsRow.alignment = .center
         stats.addSubview(statsRow)
         statsRow.snp.makeConstraints { $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 14, left: 4, bottom: 14, right: 4)) }
-        let posts = AppStore.shared.posts(by: user.id)
+        let posts = SKDataStore.shared.posts(by: user.id)
         let values = [
-            ("FOLLOWERS", AppStore.shared.followerCount(for: user).compactCount),
-            ("FOLLOWING", AppStore.shared.followingCount(for: user).compactCount),
+            ("FOLLOWERS", SKDataStore.shared.followerCount(for: user).compactCount),
+            ("FOLLOWING", SKDataStore.shared.followingCount(for: user).compactCount),
             ("LINES", "\(posts.count)")
         ]
         for (index, value) in values.enumerated() {
@@ -467,10 +473,8 @@ final class UserProfileViewController: BaseViewController {
     }
 
     private func buildActions(user: User) {
-        let following = AppStore.shared.isFollowing(userID: user.id)
-        let friend = AppStore.shared.isFriend(userID: user.id)
-        let requested = AppStore.shared.hasOutgoingRequest(to: user.id)
-        let incoming = AppStore.shared.hasIncomingRequest(from: user.id)
+        let following = SKDataStore.shared.isFollowing(userID: user.id)
+        let coach = SKDataStore.shared.coachProfile(for: user.id)
 
         let row = UIStackView()
         row.axis = .horizontal
@@ -481,30 +485,32 @@ final class UserProfileViewController: BaseViewController {
             let follow = GhostButton(title: "FOLLOWING", icon: "checkmark", height: 48, tint: Palette.lime, borderColor: Palette.lime.withAlphaComponent(0.3))
             follow.addAction(UIAction { [weak self] _ in self?.toggleFollow(user) }, for: .touchUpInside)
             row.addArrangedSubview(follow)
+        } else if coach != nil {
+            let follow = GhostButton(title: "FOLLOW", icon: "plus", height: 48)
+            follow.addAction(UIAction { [weak self] _ in self?.toggleFollow(user) }, for: .touchUpInside)
+            row.addArrangedSubview(follow)
         } else {
             let follow = GradientButton(title: "FOLLOW", icon: "plus", colors: SkesteGradient.signature, height: 48)
             follow.addAction(UIAction { [weak self] _ in self?.toggleFollow(user) }, for: .touchUpInside)
             row.addArrangedSubview(follow)
         }
 
-        if friend {
-            let message = GhostButton(title: "MESSAGE", icon: "bubble.left.fill", height: 48, tint: Palette.ice, borderColor: Palette.cyan.withAlphaComponent(0.3))
-            message.addAction(UIAction { [weak self] _ in self?.message(user) }, for: .touchUpInside)
-            row.addArrangedSubview(message)
-        } else if incoming {
-            let accept = GradientButton(title: "ACCEPT REQUEST", icon: "checkmark", colors: SkesteGradient.signature, height: 48)
-            accept.addAction(UIAction { [weak self] _ in self?.acceptRequest(user) }, for: .touchUpInside)
-            row.addArrangedSubview(accept)
-        } else if requested {
-            let sent = GhostButton(title: "REQUEST SENT", icon: "clock", height: 48, tint: Palette.muted, borderColor: Palette.hairline)
-            sent.addAction(UIAction { [weak self] _ in
-                self?.showToast("Request sent. You can chat once \(user.displayName) accepts.", style: .info)
-            }, for: .touchUpInside)
-            row.addArrangedSubview(sent)
-        } else {
-            let add = GhostButton(title: "ADD FRIEND", icon: "person.badge.plus", height: 48)
-            add.addAction(UIAction { [weak self] _ in self?.addFriend(user) }, for: .touchUpInside)
-            row.addArrangedSubview(add)
+        if coach != nil {
+            if let booking = SKDataStore.shared.openBooking(with: user.id) {
+                if booking.status == .accepted {
+                    let call = GhostButton(title: "VIDEO CALL", icon: "video.fill", height: 48, tint: Palette.lime, borderColor: Palette.lime.withAlphaComponent(0.3))
+                    call.addAction(UIAction { [weak self] _ in self?.startCall(booking) }, for: .touchUpInside)
+                    row.addArrangedSubview(call)
+                } else {
+                    let pending = GhostButton(title: "SESSION PENDING", icon: "clock", height: 48, tint: Palette.amber, borderColor: Palette.amber.withAlphaComponent(0.3))
+                    pending.addAction(UIAction { [weak self] _ in self?.openBookingDetail(booking) }, for: .touchUpInside)
+                    row.addArrangedSubview(pending)
+                }
+            } else {
+                let book = GradientButton(title: "BOOK A SESSION", icon: "calendar.badge.plus", colors: SkesteGradient.signature, height: 48, fontSize: 13)
+                book.addAction(UIAction { [weak self] _ in self?.bookSession(user) }, for: .touchUpInside)
+                row.addArrangedSubview(book)
+            }
         }
         contentStack.addArrangedSubview(row)
         contentStack.setCustomSpacing(18, after: row)
@@ -513,61 +519,44 @@ final class UserProfileViewController: BaseViewController {
     private func toggleFollow(_ user: User) {
         requireLogin { [weak self] in
             guard let self else { return }
-            guard let following = AppStore.shared.toggleFollow(userID: user.id) else { return }
+            guard let following = SKDataStore.shared.toggleFollow(userID: user.id) else { return }
             SkesteHaptics.light()
             self.rebuild()
             self.showToast(following ? "You're following \(user.displayName)." : "You unfollowed \(user.displayName).", style: .success)
         }
     }
 
-    private func addFriend(_ user: User) {
+    private func bookSession(_ user: User) {
         requireLogin { [weak self] in
             guard let self else { return }
-            if AppStore.shared.isFriend(userID: user.id) {
-                self.rebuild()
+            guard SKDataStore.shared.coachProfile(for: user.id) != nil else {
+                self.showToast("This rider is not taking sessions right now.", style: .error)
                 return
             }
-            if AppStore.shared.hasOutgoingRequest(to: user.id) {
-                self.showToast("Request sent. You can chat once \(user.displayName) accepts.", style: .info)
-                return
-            }
-            if AppStore.shared.sendFriendRequest(to: user.id) {
-                SkesteHaptics.success()
-                self.rebuild()
-                self.showToast("Friend request sent. You can chat once \(user.displayName) accepts.", style: .success)
-            } else {
-                self.showToast("Couldn't send that request. Try again.", style: .error)
-            }
+            self.push(BookingFormViewController(coachUserID: user.id))
         }
     }
 
-    private func acceptRequest(_ user: User) {
-        requireLogin { [weak self] in
-            guard let self else { return }
-            guard AppStore.shared.acceptFriendRequest(from: user.id) != nil else {
-                self.showToast("That request is no longer available.", style: .error)
-                return
-            }
-            SkesteHaptics.success()
-            self.rebuild()
-            self.showToast("You're riding with \(user.displayName).", style: .success)
-        }
+    private func openBookingDetail(_ booking: CoachBooking) {
+        push(BookingDetailViewController(bookingID: booking.id, source: source))
     }
 
-    private func message(_ user: User) {
-        requireLogin { [weak self] in
-            guard let self else { return }
-            guard AppStore.shared.isFriend(userID: user.id),
-                  let conversation = AppStore.shared.ensureConversation(with: user.id) else {
-                self.showToast("You can message this rider once they're in your circle.", style: .error)
-                return
-            }
-            self.push(ChatDetailViewController(conversationID: conversation.id, source: .home))
+    private func startCall(_ booking: CoachBooking) {
+        guard booking.status == .accepted,
+              let coach = SKDataStore.shared.user(withID: booking.coachUserID) else {
+            showToast("This session is not confirmed yet.", style: .info)
+            return
         }
+        present(CoachingCallViewController(booking: booking, coach: coach), animated: true)
+    }
+
+    @objc private func coachingChanged() {
+        guard isViewLoaded, view.window != nil, presentedViewController == nil else { return }
+        rebuild()
     }
 
     private func reportUser() {
-        guard userID != AppStore.shared.currentUser?.id else { return }
+        guard userID != SKDataStore.shared.currentUser?.id else { return }
         requireLogin { [weak self] in
             guard let self else { return }
             self.push(ReportViewController(target: .user(userID: self.userID), source: self.source))

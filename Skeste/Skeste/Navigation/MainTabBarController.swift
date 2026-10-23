@@ -4,14 +4,14 @@ import SnapKit
 enum RootTab: Int, CaseIterable {
     case home = 0
     case tools = 1
-    case chats = 2
+    case coaching = 2
     case settings = 3
 
     var icon: String {
         switch self {
         case .home: return "mountain.2.fill"
         case .tools: return "slider.horizontal.3"
-        case .chats: return "bubble.left.and.bubble.right.fill"
+        case .coaching: return "video.fill"
         case .settings: return "person.crop.circle"
         }
     }
@@ -20,7 +20,7 @@ enum RootTab: Int, CaseIterable {
         switch self {
         case .home: return "Mountain"
         case .tools: return "Ridge Lab"
-        case .chats: return "Ride Line"
+        case .coaching: return "Coaching"
         case .settings: return "Base Camp"
         }
     }
@@ -142,7 +142,7 @@ final class TabIconButton: UIControl {
 final class CustomTabBarView: UIView {
     var onSelect: ((RootTab) -> Void)?
     var onCompose: (() -> Void)?
-    private let tabs: [RootTab] = [.home, .tools, .chats, .settings]
+    private let tabs: [RootTab] = [.home, .tools, .coaching, .settings]
     private var buttons: [RootTab: TabIconButton] = [:]
     private let composeButton: TabIconButton
     private let blurContainer = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
@@ -189,7 +189,7 @@ final class CustomTabBarView: UIView {
 
         var ordered: [UIView] = []
         for tab in tabs {
-            if tab == .chats {
+            if tab == .coaching {
                 ordered.append(composeButton)
                 composeButton.addAction(UIAction { [weak self] _ in
                     SkesteHaptics.medium()
@@ -246,12 +246,17 @@ final class MainTabBarController: UITabBarController, UINavigationControllerDele
         super.viewDidLoad()
         view.backgroundColor = Palette.canvas
         tabBar.isHidden = true
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demoLogin"), !SKDataStore.shared.isLoggedIn {
+            _ = SKDataStore.shared.login(username: "test", password: "123456")
+        }
+        #endif
 
         let home = SkesteNavigationController(rootViewController: HomeViewController())
         let tools = SkesteNavigationController(rootViewController: ToolsViewController())
-        let chats = SkesteNavigationController(rootViewController: ChatsViewController())
+        let coaching = SkesteNavigationController(rootViewController: CoachingViewController())
         let settings = SkesteNavigationController(rootViewController: SettingsViewController())
-        let controllers = [home, tools, chats, settings]
+        let controllers = [home, tools, coaching, settings]
         controllers.forEach { $0.delegate = self }
         setViewControllers(controllers, animated: false)
         selectedIndex = RootTab.home.rawValue
@@ -264,11 +269,7 @@ final class MainTabBarController: UITabBarController, UINavigationControllerDele
         }
         customBar.setSelected(.home)
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-startTools") {
-            selectedIndex = RootTab.tools.rawValue
-            currentRoot = .tools
-            customBar.setSelected(.tools)
-        }
+        applyDebugLaunchRoutes()
         #endif
         customBar.onSelect = { [weak self] tab in
             self?.selectRootTab(tab)
@@ -323,8 +324,61 @@ final class MainTabBarController: UITabBarController, UINavigationControllerDele
     }
 
     @objc private func authChanged() {
-        if AppStore.shared.isLoggedIn {
+        if SKDataStore.shared.isLoggedIn {
             customBar.setSelected(currentRoot)
         }
     }
+
+    #if DEBUG
+    /// Deep links used by the simulator QA flow, for example:
+    /// `-demoLogin -startCoaching`, `-startBookingDetail`, `-startCall`.
+    private func applyDebugLaunchRoutes() {
+        let arguments = ProcessInfo.processInfo.arguments
+        func select(_ tab: RootTab) {
+            selectedIndex = tab.rawValue
+            currentRoot = tab
+            customBar.setSelected(tab)
+        }
+        let coachingNav: () -> UINavigationController? = { self.viewControllers?[RootTab.coaching.rawValue] as? UINavigationController }
+
+        if arguments.contains("-startTools") {
+            select(.tools)
+        }
+        if arguments.contains("-startCoaching") {
+            select(.coaching)
+        }
+        if arguments.contains("-startCoachProfile") {
+            select(.coaching)
+            coachingNav()?.pushViewController(CoachProfileViewController(userID: "u_luna", source: .coaching), animated: false)
+        }
+        if arguments.contains("-startBookingForm") {
+            select(.coaching)
+            coachingNav()?.pushViewController(BookingFormViewController(coachUserID: "u_luna"), animated: false)
+        }
+        if arguments.contains("-startBookingDetail") {
+            select(.coaching)
+            coachingNav()?.pushViewController(BookingDetailViewController(bookingID: "booking_luna_seed", source: .coaching), animated: false)
+        }
+        if arguments.contains("-startCall"),
+           let booking = SKDataStore.shared.booking(withID: "booking_luna_seed"),
+           let coach = SKDataStore.shared.user(withID: booking.coachUserID) {
+            select(.coaching)
+            DispatchQueue.main.async {
+                self.present(CoachingCallViewController(booking: booking, coach: coach), animated: false)
+            }
+        }
+        if arguments.contains("-seedDemoBooking") {
+            select(.coaching)
+            if SKDataStore.shared.isLoggedIn, SKDataStore.shared.openBooking(with: "u_kai") == nil {
+                _ = SKDataStore.shared.requestBooking(
+                    coachUserID: "u_kai",
+                    topic: .confidence,
+                    details: "First park session after an injury. I want a gentle progression and a plan for getting my confidence back on jumps.",
+                    scheduledAt: Date().addingTimeInterval(2 * 24 * 3600),
+                    durationMinutes: 45
+                )
+            }
+        }
+    }
+    #endif
 }

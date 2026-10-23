@@ -5,7 +5,6 @@ enum ReportTarget {
     case post(postID: String)
     case comment(commentID: String, postID: String)
     case user(userID: String)
-    case conversation(conversationID: String, otherUserID: String)
 }
 
 enum ReportReason: Int, CaseIterable {
@@ -27,7 +26,7 @@ enum ReportReason: Int, CaseIterable {
         switch self {
         case .illegal: return "Threats, exploitation, or activity that breaks the law."
         case .inappropriate: return "Hate, harassment, explicit media, or graphic content."
-        case .block: return "Remove this person from your feed, circle, and messages."
+        case .block: return "Remove this person from your feed, coaching sessions, and calls."
         case .other: return "Spam, impersonation, or anything that feels off."
         }
     }
@@ -129,6 +128,9 @@ final class ReportOptionRow: UIControl {
 }
 
 final class ReportViewController: BaseViewController {
+    /// Called after a report is submitted, so a presenter that is not inside the
+    /// tab navigation (for example the full-screen call) can close itself.
+    var onCompleted: (() -> Void)?
     private let target: ReportTarget
     private let source: RootTab
     private var selectedReason: ReportReason?
@@ -148,7 +150,7 @@ final class ReportViewController: BaseViewController {
 
     override func setupView() {
         let close = SkesteControls.iconButton(symbol: "chevron.left", diameter: 40)
-        close.addAction(UIAction { [weak self] _ in self?.navigationController?.popViewController(animated: true) }, for: .touchUpInside)
+        close.addAction(UIAction { [weak self] _ in self?.closeReport() }, for: .touchUpInside)
         view.addSubview(close)
         close.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(AppLayout.screenPadding)
@@ -281,27 +283,33 @@ final class ReportViewController: BaseViewController {
         }, for: .touchUpInside)
     }
 
+    private func closeReport() {
+        guard let nav = navigationController else { return }
+        if nav.viewControllers.first === self, nav.presentingViewController != nil {
+            nav.dismiss(animated: true)
+        } else {
+            nav.popViewController(animated: true)
+        }
+    }
+
     private func targetSummary() -> String {
         switch target {
         case .post(let postID):
-            if let post = AppStore.shared.post(withID: postID) {
-                let author = AppStore.shared.user(withID: post.authorID)?.displayName ?? "a rider"
+            if let post = SKDataStore.shared.post(withID: postID) {
+                let author = SKDataStore.shared.user(withID: post.authorID)?.displayName ?? "a rider"
                 let caption = post.caption.count > 120 ? String(post.caption.prefix(120)) + "…" : post.caption
                 return "You're reporting a post by \(author): “\(caption)”"
             }
             return "You're reporting a post."
         case .comment(let commentID, _):
-            if let comment = AppStore.shared.comment(withID: commentID) {
+            if let comment = SKDataStore.shared.comment(withID: commentID) {
                 let text = comment.text.count > 120 ? String(comment.text.prefix(120)) + "…" : comment.text
                 return "You're reporting a comment: “\(text)”"
             }
             return "You're reporting a comment."
         case .user(let userID):
-            let name = AppStore.shared.user(withID: userID)?.displayName ?? "this rider"
-            return "You're reporting \(name). Their posts and messages can be removed from your mountain."
-        case .conversation(_, let otherUserID):
-            let name = AppStore.shared.user(withID: otherUserID)?.displayName ?? "this rider"
-            return "You're reporting your conversation with \(name)."
+            let name = SKDataStore.shared.user(withID: userID)?.displayName ?? "this rider"
+            return "You're reporting \(name). Their posts and coaching sessions can be removed from your mountain."
         }
     }
 
@@ -321,36 +329,33 @@ final class ReportViewController: BaseViewController {
         view.endEditing(true)
         switch target {
         case .comment(let commentID, _):
-            let comment = AppStore.shared.comment(withID: commentID)
-            AppStore.shared.deleteComment(id: commentID)
+            let comment = SKDataStore.shared.comment(withID: commentID)
+            SKDataStore.shared.deleteComment(id: commentID)
             if reason == .block, let authorID = comment?.authorID {
-                AppStore.shared.removeUserAndData(userID: authorID)
+                SKDataStore.shared.removeUserAndData(userID: authorID)
                 showToast("Comment removed and user blocked.", style: .success)
                 returnToRootTab(.home)
+                onCompleted?()
                 return
             }
             showToast("Report received. The comment has been removed.", style: .success)
             navigationController?.popViewController(animated: true)
+            onCompleted?()
         case .post(let postID):
-            if reason == .block, let post = AppStore.shared.post(withID: postID) {
-                AppStore.shared.removeUserAndData(userID: post.authorID)
+            if reason == .block, let post = SKDataStore.shared.post(withID: postID) {
+                SKDataStore.shared.removeUserAndData(userID: post.authorID)
                 showToast("Post removed and user blocked.", style: .success)
             } else {
-                AppStore.shared.deletePost(id: postID)
+                SKDataStore.shared.deletePost(id: postID)
                 showToast("Report received. The post has been removed.", style: .success)
             }
             returnToRootTab(.home)
+            onCompleted?()
         case .user(let userID):
-            AppStore.shared.removeUserAndData(userID: userID)
+            SKDataStore.shared.removeUserAndData(userID: userID)
             showToast("Report received. This user's content has been removed.", style: .success)
             returnToRootTab(source)
-        case .conversation(let conversationID, let otherUserID):
-            AppStore.shared.deleteConversation(id: conversationID)
-            if reason == .block {
-                AppStore.shared.removeUserAndData(userID: otherUserID)
-            }
-            showToast("Report received. The conversation has been removed.", style: .success)
-            returnToRootTab(.chats)
+            onCompleted?()
         }
     }
 }

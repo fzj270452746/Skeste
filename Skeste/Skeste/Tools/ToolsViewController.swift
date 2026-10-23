@@ -309,7 +309,7 @@ final class ToolsViewController: BaseViewController {
         let prefs = LabPrefs.shared
         let resort = currentResort()
         let stamp = resort.reportUpdatedAt?.timeIntervalSince1970 ?? 0
-        return "\(AppStore.shared.runs.count)-\(Int(AppStore.shared.totalVertical))-\(AppStore.shared.currentUser?.homeResort ?? "guest")-\(prefs.revision)-\(prefs.savedWax.count)-\(prefs.savedQuivers.count)-\(resort.reportSource.rawValue)-\(stamp)"
+        return "\(SKDataStore.shared.runs.count)-\(Int(SKDataStore.shared.totalVertical))-\(SKDataStore.shared.currentUser?.homeResort ?? "guest")-\(prefs.revision)-\(prefs.savedWax.count)-\(prefs.savedQuivers.count)-\(resort.reportSource.rawValue)-\(stamp)"
     }
 
     private func rebuild() {
@@ -583,7 +583,7 @@ final class ToolsViewController: BaseViewController {
             ? " Weather by Apple Weather. Avalanche level is for reference only."
             : " Avalanche level is for reference only."
         let caption = "Today's call at \(resort.name): \(wax.family.capitalized) wax, \(terrain.level.lowercased()) terrain, best window \(window.label). Logged with Ridge Lab.\(weather)"
-        let sheet = SkesteActionSheetViewController(heading: "SHARE THE BRIEF", message: "Send today's call to your circle.", actions: [
+        let sheet = SkesteActionSheetViewController(heading: "SHARE THE BRIEF", message: "Send today's call to your crew.", actions: [
             SkesteSheetAction(title: "Share card", symbol: "square.and.arrow.up") { [weak self] in
                 guard let self else { return }
                 LabShare.present(image: image, text: caption, from: self)
@@ -600,7 +600,7 @@ final class ToolsViewController: BaseViewController {
     // MARK: - Season
 
     private func buildSeasonCard() {
-        let runs = AppStore.shared.runs
+        let runs = SKDataStore.shared.runs
         let card = UIView()
         card.applyGlass(cornerRadius: 20, borderAlpha: 0.08, fill: Palette.glass)
 
@@ -645,7 +645,7 @@ final class ToolsViewController: BaseViewController {
             numbers.spacing = 0
             body.addArrangedSubview(numbers)
 
-            let vertical = UILabel(text: "\(Int(AppStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(36), color: Palette.text)
+            let vertical = UILabel(text: "\(Int(SKDataStore.shared.totalVertical.rounded())) m", font: SkesteFont.display(36), color: Palette.text)
             vertical.richTracking(-1)
             numbers.addArrangedSubview(vertical)
             let verticalLabel = UILabel(text: "TOTAL VERTICAL", font: SkesteFont.demibold(7), color: Palette.muted)
@@ -680,7 +680,7 @@ final class ToolsViewController: BaseViewController {
         let resort = currentResort()
         let wax = WaxAdvisor.quickPlan(for: resort)
         let terrain = TerrainAdvisor.assess(TerrainInput.from(resort: resort))
-        let runs = AppStore.shared.runs
+        let runs = SKDataStore.shared.runs
         let fit = LabPrefs.shared.lastFit
 
         let grid = UIStackView()
@@ -695,7 +695,7 @@ final class ToolsViewController: BaseViewController {
         rowOne.spacing = 10
         rowOne.distribution = .fillEqually
         let runWord = runs.count == 1 ? "run" : "runs"
-        let trackerDetail = runs.isEmpty ? "Ready to log" : "\(runs.count) \(runWord) · \(Int(AppStore.shared.totalVertical.rounded())) m"
+        let trackerDetail = runs.isEmpty ? "Ready to log" : "\(runs.count) \(runWord) · \(Int(SKDataStore.shared.totalVertical.rounded())) m"
         let tracker = ToolGradientTile(kicker: "TOOL 01", title: "RUN\nTRACKER", detail: trackerDetail, symbol: "figure.skiing.downhill", colors: [UIColor(hex: "FFD447"), UIColor(hex: "FFB84D")], variant: 0)
         tracker.addAction(UIAction { [weak self] _ in self?.push(RunTrackerViewController()) }, for: .touchUpInside)
         let waxDetail = "\(wax.family.capitalized) · \(Int(resort.derivedSnowTempC.rounded()))°C"
@@ -756,7 +756,7 @@ final class ToolsViewController: BaseViewController {
     }
 
     private func currentResortKey() -> String {
-        if let name = AppStore.shared.currentUser?.homeResort,
+        if let name = SKDataStore.shared.currentUser?.homeResort,
            let resort = SnowLibrary.resort(named: name) {
             return resort.name
         }

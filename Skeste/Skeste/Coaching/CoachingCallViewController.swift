@@ -9,8 +9,6 @@ final class CallPulseView: UIView {
         super.init(frame: frame)
         backgroundColor = .clear
         gradient.colors = [Palette.cyan.withAlphaComponent(0.35).cgColor, Palette.magenta.withAlphaComponent(0.25).cgColor]
-        gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint = CGPoint(x: 1, y: 1)
         gradient.type = .radial
         gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
         gradient.endPoint = CGPoint(x: 1, y: 1)
@@ -62,26 +60,36 @@ final class CallPulseView: UIView {
     }
 }
 
-final class VideoCallViewController: UIViewController {
-    private let peer: User
+/// The private coaching session screen. The existing call surface is kept and now
+/// receives the booked session, the coach and the topic focus.
+final class CoachingCallViewController: UIViewController {
+    private let booking: CoachBooking
+    private let coach: User
+    private let profile: CoachProfile?
     private let statusLabel = UILabel(text: "CONNECTING VIDEO…", font: SkesteFont.demibold(9), color: Palette.cyan)
     private let nameLabel: UILabel
     private let subtitleLabel: UILabel
     private let timerLabel = UILabel(text: "00:00", font: SkesteFont.mono(11, weight: .medium), color: Palette.muted)
-    private var declineWork: DispatchWorkItem?
-    private var dismissWork: DispatchWorkItem?
-    private var seconds = 0
-    private var timer: Timer?
     private let muteButton = UIButton(type: .system)
     private let speakerButton = UIButton(type: .system)
+    private var seconds = 0
+    private var timer: Timer?
     private var isMuted = false
     private var isSpeaker = true
     private var isEnding = false
+    private var declineWork: DispatchWorkItem?
+    private var dismissWork: DispatchWorkItem?
 
-    init(peer: User) {
-        self.peer = peer
-        nameLabel = UILabel(text: peer.displayName, font: SkesteFont.display(24), color: Palette.text)
-        subtitleLabel = UILabel(text: peer.homeResort, font: SkesteFont.medium(12), color: Palette.secondary)
+    init(booking: CoachBooking, coach: User) {
+        self.booking = booking
+        self.coach = coach
+        self.profile = SKDataStore.shared.coachProfile(for: coach.id)
+        nameLabel = UILabel(text: coach.displayName, font: SkesteFont.display(24), color: Palette.text)
+        subtitleLabel = UILabel(
+            text: profile.map { "COACH  ·  \($0.specialties.prefix(2).joined(separator: " / ").uppercased())" } ?? "COACH",
+            font: SkesteFont.medium(10),
+            color: Palette.cyan
+        )
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
         modalTransitionStyle = .crossDissolve
@@ -89,6 +97,12 @@ final class VideoCallViewController: UIViewController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        declineWork?.cancel()
+        dismissWork?.cancel()
+        timer?.invalidate()
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
@@ -99,9 +113,14 @@ final class VideoCallViewController: UIViewController {
         UIApplication.shared.isIdleTimerDisabled = true
 
         let artwork = AlpineArtworkView()
-        artwork.configure(seed: peer.avatarAsset + peer.id)
-        self.view.addSubview(artwork)
+        artwork.configure(seed: coach.avatarAsset + coach.id)
+        view.addSubview(artwork)
         artwork.snp.makeConstraints { $0.edges.equalToSuperview() }
+        // A slow drift keeps the remote frame feeling live instead of a frozen card.
+        artwork.transform = CGAffineTransform(scaleX: 1.02, y: 1.02)
+        UIView.animate(withDuration: 14, delay: 0, options: [.autoreverse, .repeat, .curveEaseInOut]) {
+            artwork.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+        }
 
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
         view.addSubview(blur)
@@ -121,7 +140,7 @@ final class VideoCallViewController: UIViewController {
         shadeView.snp.makeConstraints { $0.edges.equalToSuperview() }
         DispatchQueue.main.async { shade.frame = shadeView.bounds }
 
-        let topKicker = UILabel(text: "SKESTE  /  PRIVATE VIDEO", font: SkesteFont.demibold(8), color: Palette.secondary)
+        let topKicker = UILabel(text: "SKESTE  /  PRIVATE COACHING", font: SkesteFont.demibold(8), color: Palette.secondary)
         topKicker.tracked(1.8)
         view.addSubview(topKicker)
         topKicker.snp.makeConstraints { make in
@@ -137,15 +156,23 @@ final class VideoCallViewController: UIViewController {
             make.centerY.equalTo(topKicker)
         }
 
+        let more = SkesteControls.iconButton(symbol: "ellipsis", diameter: 38)
+        more.addAction(UIAction { [weak self] _ in self?.showCallMenu() }, for: .touchUpInside)
+        view.addSubview(more)
+        more.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-20)
+            make.centerY.equalTo(topKicker)
+        }
+
         let pulse = CallPulseView()
         view.addSubview(pulse)
         pulse.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.centerY.equalToSuperview().offset(-96)
+            make.centerY.equalToSuperview().offset(-104)
             make.width.height.equalTo(220)
         }
         let avatar = AvatarView(size: 114, showsRing: true)
-        avatar.configure(user: peer)
+        avatar.configure(user: coach)
         view.addSubview(avatar)
         avatar.snp.makeConstraints { make in
             make.center.equalTo(pulse)
@@ -162,22 +189,19 @@ final class VideoCallViewController: UIViewController {
         }
 
         subtitleLabel.textAlignment = .center
+        subtitleLabel.tracked(1.2)
         view.addSubview(subtitleLabel)
         subtitleLabel.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(nameLabel.snp.bottom).offset(0)
+            make.top.equalTo(nameLabel.snp.bottom).offset(1)
         }
 
         statusLabel.textAlignment = .center
-        statusLabel.attributedText = NSAttributedString(string: "CONNECTING VIDEO…", attributes: [
-            .font: SkesteFont.demibold(9),
-            .foregroundColor: Palette.cyan,
-            .kern: 1.8
-        ])
+        setStatus("CONNECTING VIDEO…", color: Palette.cyan)
         view.addSubview(statusLabel)
         statusLabel.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(18)
+            make.top.equalTo(subtitleLabel.snp.bottom).offset(16)
         }
 
         timerLabel.textAlignment = .center
@@ -185,6 +209,20 @@ final class VideoCallViewController: UIViewController {
         timerLabel.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
             make.top.equalTo(statusLabel.snp.bottom).offset(7)
+        }
+
+        let sessionPill = SkesteTagLabel(
+            text: "\(booking.topic.title.uppercased())  ·  \(booking.durationMinutes) MIN  ·  \(booking.scheduledAt.bookingStamp.uppercased())",
+            tint: Palette.ice,
+            fill: Palette.glass
+        )
+        sessionPill.insets = UIEdgeInsets(top: 5, left: 9, bottom: 5, right: 9)
+        view.addSubview(sessionPill)
+        sessionPill.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(timerLabel.snp.bottom).offset(12)
+            make.leading.greaterThanOrEqualToSuperview().offset(20)
+            make.trailing.lessThanOrEqualToSuperview().offset(-20)
         }
 
         let controls = UIStackView()
@@ -219,7 +257,7 @@ final class VideoCallViewController: UIViewController {
             make.height.equalTo(82)
         }
 
-        let privacy = UILabel(text: "NO SELF PREVIEW  ·  YOUR CAMERA STAYS PRIVATE", font: SkesteFont.demibold(7), color: Palette.muted)
+        let privacy = UILabel(text: "PRIVATE SESSION  ·  NOT RECORDED", font: SkesteFont.demibold(7), color: Palette.muted)
         privacy.tracked(1.2)
         privacy.textAlignment = .center
         view.addSubview(privacy)
@@ -251,37 +289,21 @@ final class VideoCallViewController: UIViewController {
         button.accessibilityLabel = title
     }
 
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-            guard let self else {
-                timer.invalidate()
-                return
-            }
-            self.seconds += 1
-            self.timerLabel.text = String(format: "%02d:%02d", self.seconds / 60, self.seconds % 60)
-        }
-    }
-
     private func scheduleDecline() {
         let work = DispatchWorkItem { [weak self] in
-            guard let self, !self.isEnding else { return }
-            self.showDeclined()
+            self?.showDeclined()
         }
         declineWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
     }
 
     private func showDeclined() {
+        guard !isEnding else { return }
         isEnding = true
         timer?.invalidate()
         SkesteHaptics.warning()
-        statusLabel.text = "CALL DECLINED"
-        statusLabel.attributedText = NSAttributedString(string: "CALL DECLINED", attributes: [
-            .font: SkesteFont.demibold(9),
-            .foregroundColor: Palette.amber,
-            .kern: 1.8
-        ])
-        timerLabel.text = "The line went quiet."
+        setStatus("CALL DECLINED", color: Palette.amber)
+        timerLabel.text = "The coach declined the call."
         timerLabel.font = SkesteFont.medium(11)
         UIView.animate(withDuration: 0.25) {
             self.view.alpha = 0.82
@@ -292,16 +314,27 @@ final class VideoCallViewController: UIViewController {
             }
         }
         dismissWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
     }
 
-    private func endCall() {
-        guard !isEnding else { return }
-        isEnding = true
-        declineWork?.cancel()
-        dismissWork?.cancel()
+    private func setStatus(_ text: String, color: UIColor) {
+        statusLabel.attributedText = NSAttributedString(string: text, attributes: [
+            .font: SkesteFont.demibold(9),
+            .foregroundColor: color,
+            .kern: 1.8
+        ])
+    }
+
+    private func startTimer() {
         timer?.invalidate()
-        dismiss(animated: true)
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            self.seconds += 1
+            self.timerLabel.text = String(format: "%02d:%02d", self.seconds / 60, self.seconds % 60)
+        }
     }
 
     private func toggleMute() {
@@ -319,5 +352,68 @@ final class VideoCallViewController: UIViewController {
         let symbol = isSpeaker ? "speaker.wave.2.fill" : "speaker.slash.fill"
         speakerButton.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold)), for: .normal)
         speakerButton.tintColor = isSpeaker ? Palette.text : Palette.amber
+    }
+
+    private func showCallMenu() {
+        let actions: [SkesteSheetAction] = [
+            SkesteSheetAction(title: "View coach profile", symbol: "person.crop.circle") { [weak self] in
+                self?.openProfile()
+            },
+            SkesteSheetAction(title: "Report this coach", symbol: "flag") { [weak self] in
+                self?.presentReport()
+            },
+            SkesteSheetAction(title: "Block this coach", symbol: "hand.raised", destructive: true) { [weak self] in
+                self?.confirmBlock()
+            }
+        ]
+        present(SkesteActionSheetViewController(heading: "SESSION OPTIONS", message: nil, actions: actions), animated: true)
+    }
+
+    private func openProfile() {
+        let profile = CoachProfileViewController(userID: coach.id, source: .coaching)
+        let nav = SkesteNavigationController(rootViewController: profile)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
+    }
+
+    private func presentReport() {
+        let report = ReportViewController(target: .user(userID: coach.id), source: .coaching)
+        let nav = SkesteNavigationController(rootViewController: report)
+        nav.modalPresentationStyle = .pageSheet
+        report.onCompleted = { [weak self, weak nav] in
+            nav?.dismiss(animated: true) {
+                self?.endCall(message: "Report received. The session has ended.")
+            }
+        }
+        present(nav, animated: true)
+    }
+
+    private func confirmBlock() {
+        let alert = SkesteAlertViewController(
+            title: "Block \(coach.displayName)?",
+            message: "This coach and their content will leave your mountain. The session ends immediately and cannot be restored.",
+            confirmTitle: "Block coach",
+            destructive: true
+        ) { [weak self] in
+            guard let self else { return }
+            SKDataStore.shared.removeUserAndData(userID: self.coach.id)
+            self.endCall(message: "Coach blocked and removed.")
+        }
+        present(alert, animated: true)
+    }
+
+    private func endCall(message: String? = nil) {
+        guard !isEnding else { return }
+        isEnding = true
+        declineWork?.cancel()
+        dismissWork?.cancel()
+        timer?.invalidate()
+        dismiss(animated: true) {
+            if let message {
+                SkesteToast.show(message, style: .success)
+            } else {
+                SkesteToast.show("Session ended.", style: .info)
+            }
+        }
     }
 }

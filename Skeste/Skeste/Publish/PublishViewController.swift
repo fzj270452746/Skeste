@@ -448,7 +448,7 @@ final class PublishViewController: BaseViewController {
         let mediaToPublish = media
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self else { return }
-            guard let post = AppStore.shared.addPost(kind: kind, caption: caption, tags: tags, media: mediaToPublish) else {
+            guard let post = SKDataStore.shared.addPost(kind: kind, caption: caption, tags: tags, media: mediaToPublish) else {
                 self.isWorking = false
                 self.publishButton.isEnabled = true
                 self.publishButton.title = "PUBLISH TO THE RIDGE"

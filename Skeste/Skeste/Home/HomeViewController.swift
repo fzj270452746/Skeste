@@ -255,7 +255,7 @@ final class HomeViewController: BaseViewController {
     }
 
     private func homeResortName() -> String {
-        AppStore.shared.currentUser?.homeResort ?? "Chamonix, FR"
+        SKDataStore.shared.currentUser?.homeResort ?? "Chamonix, FR"
     }
 
     private func homeResortKey() -> String {
@@ -289,10 +289,9 @@ final class HomeViewController: BaseViewController {
     }
 
     private func currentSignature() -> String {
-        let posts = AppStore.shared.sortedPosts.map { "\($0.id)-\($0.likeCount)-\($0.giftCount)" }.joined(separator: "|")
-        let comments = AppStore.shared.state.comments.count
-        let chats = AppStore.shared.conversations.count
-        return "\(posts)#\(comments)#\(chats)#\(AppStore.shared.currentUser?.id ?? "guest")"
+        let posts = SKDataStore.shared.sortedPosts.map { "\($0.id)-\($0.likeCount)-\($0.giftCount)" }.joined(separator: "|")
+        let comments = SKDataStore.shared.state.comments.count
+        return "\(posts)#\(comments)#\(SKDataStore.shared.currentUser?.id ?? "guest")"
     }
 
     private func rebuild(preserveScroll: Bool) {
@@ -340,7 +339,7 @@ final class HomeViewController: BaseViewController {
     }
 
     private func updateHeader() {
-        headerView?.configure(user: AppStore.shared.currentUser)
+        headerView?.configure(user: SKDataStore.shared.currentUser)
         conditionsView?.configure(resort: homeResortName())
     }
 
@@ -358,7 +357,7 @@ final class HomeViewController: BaseViewController {
         }
         contentStack.addArrangedSubview(wrap)
         conditionsView = conditions
-        conditions.configure(resort: AppStore.shared.currentUser?.homeResort ?? "Chamonix, FR")
+        conditions.configure(resort: SKDataStore.shared.currentUser?.homeResort ?? "Chamonix, FR")
     }
 
     private func buildSpotlight(startingAt: Int) {
@@ -367,7 +366,7 @@ final class HomeViewController: BaseViewController {
         contentStack.setCustomSpacing(24, after: heading)
 
         let carousel = SpotlightCarouselView()
-        let reels = AppStore.shared.reels
+        let reels = SKDataStore.shared.reels
         carousel.configure(posts: reels, startingAt: startingAt)
         carousel.onOpen = { [weak self] post in self?.openPost(post) }
         carousel.onAuthor = { [weak self] post in self?.openAuthor(post) }
@@ -380,7 +379,7 @@ final class HomeViewController: BaseViewController {
     }
 
     private func buildFeedHeader() {
-        let heading = SectionHeadingView(kicker: "Stories from the circle", title: "FIELD NOTES", actionTitle: nil, onAction: nil)
+        let heading = SectionHeadingView(kicker: "Stories from the ridgeline", title: "FIELD NOTES", actionTitle: nil, onAction: nil)
         contentStack.addArrangedSubview(heading)
         feedCountLabel.attributedText = NSAttributedString(string: "SCROLL FOR MORE  ↓", attributes: [
             .font: SkesteFont.demibold(8),
@@ -473,7 +472,7 @@ final class HomeViewController: BaseViewController {
     /// The home feed below THE DROP is image-only. Video posts live in the
     /// spotlight carousel, so reels never enter this stack.
     private func noteFeed() -> [Post] {
-        AppStore.shared.sortedPosts.filter { $0.kind == .note }
+        SKDataStore.shared.sortedPosts.filter { $0.kind == .note }
     }
 
     private func loadMore() {
@@ -500,7 +499,7 @@ final class HomeViewController: BaseViewController {
     }
 
     private func accountTapped() {
-        if AppStore.shared.isLoggedIn {
+        if SKDataStore.shared.isLoggedIn {
             (tabBarController as? MainTabBarController)?.selectRootTab(.settings)
         } else {
             requireLogin { [weak self] in
@@ -520,8 +519,8 @@ final class HomeViewController: BaseViewController {
     }
 
     private func openAuthor(_ post: Post) {
-        guard let author = AppStore.shared.user(withID: post.authorID) else { return }
-        if author.id == AppStore.shared.currentUser?.id {
+        guard let author = SKDataStore.shared.user(withID: post.authorID) else { return }
+        if author.id == SKDataStore.shared.currentUser?.id {
             (tabBarController as? MainTabBarController)?.selectRootTab(.settings)
             return
         }
@@ -531,7 +530,7 @@ final class HomeViewController: BaseViewController {
     private func toggleLike(_ post: Post) {
         requireLogin { [weak self] in
             guard let self else { return }
-            if AppStore.shared.toggleLike(postID: post.id) == nil {
+            if SKDataStore.shared.toggleLike(postID: post.id) == nil {
                 self.showToast("That line is no longer available.", style: .error)
                 return
             }
@@ -561,10 +560,10 @@ final class HomeViewController: BaseViewController {
                 self?.push(ReportViewController(target: .post(postID: post.id), source: .home))
             }
         ]
-        if post.authorID == AppStore.shared.currentUser?.id {
+        if post.authorID == SKDataStore.shared.currentUser?.id {
             actions.insert(SkesteSheetAction(title: "Delete this post", symbol: "trash", destructive: true) { [weak self] in
                 self?.showConfirm(title: "Delete this line?", message: "This post and its comments will leave the mountain for good.", confirmTitle: "Delete post", destructive: true) {
-                    AppStore.shared.deletePost(id: post.id)
+                    SKDataStore.shared.deletePost(id: post.id)
                     self?.rebuild(preserveScroll: true)
                     self?.showToast("Your post has been removed.", style: .success)
                 }

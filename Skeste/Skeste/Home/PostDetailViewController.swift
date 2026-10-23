@@ -160,7 +160,7 @@ final class CommentRowView: UIView {
     init(comment: Comment) {
         self.comment = comment
         super.init(frame: .zero)
-        let author = AppStore.shared.user(withID: comment.authorID)
+        let author = SKDataStore.shared.user(withID: comment.authorID)
         let avatarButton = UIControl()
         let avatar = AvatarView(size: 32, showsRing: false)
         avatar.configure(user: author)
@@ -255,7 +255,7 @@ final class PostDetailViewController: BaseViewController {
     }
 
     override func refreshView() {
-        guard AppStore.shared.post(withID: postID) != nil else {
+        guard SKDataStore.shared.post(withID: postID) != nil else {
             navigationController?.popViewController(animated: true)
             return
         }
@@ -395,7 +395,7 @@ final class PostDetailViewController: BaseViewController {
     }
 
     private func updateInputIdentity() {
-        let user = AppStore.shared.currentUser
+        let user = SKDataStore.shared.currentUser
         inputAvatar.configure(user: user)
         inputAvatar.alpha = user == nil ? 0.35 : 1
         if user == nil {
@@ -433,14 +433,14 @@ final class PostDetailViewController: BaseViewController {
     }
 
     private func contentSignature() -> String {
-        guard let post = AppStore.shared.post(withID: postID) else { return "missing" }
-        let commentSignature = AppStore.shared.comments(for: postID).map { "\($0.id)-\($0.text.count)" }.joined(separator: ",")
-        return "\(post.likeCount)-\(post.giftCount)-\(commentSignature)-\(AppStore.shared.currentUser?.id ?? "guest")"
+        guard let post = SKDataStore.shared.post(withID: postID) else { return "missing" }
+        let commentSignature = SKDataStore.shared.comments(for: postID).map { "\($0.id)-\($0.text.count)" }.joined(separator: ",")
+        return "\(post.likeCount)-\(post.giftCount)-\(commentSignature)-\(SKDataStore.shared.currentUser?.id ?? "guest")"
     }
 
     private func rebuildContent(preserveOffset: Bool) {
-        guard let post = AppStore.shared.post(withID: postID),
-              let author = AppStore.shared.user(withID: post.authorID) else { return }
+        guard let post = SKDataStore.shared.post(withID: postID),
+              let author = SKDataStore.shared.user(withID: post.authorID) else { return }
         let previous = scrollView.contentOffset
         contentStack.arrangedSubviews.forEach {
             contentStack.removeArrangedSubview($0)
@@ -536,8 +536,8 @@ final class PostDetailViewController: BaseViewController {
         actions.axis = .horizontal
         actions.alignment = .center
         actions.spacing = 10
-        likeButton.configure(count: post.likeCount, active: AppStore.shared.isLiked(postID: post.id), symbol: AppStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
-        commentButton.configure(count: AppStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
+        likeButton.configure(count: post.likeCount, active: SKDataStore.shared.isLiked(postID: post.id), symbol: SKDataStore.shared.isLiked(postID: post.id) ? "heart.fill" : "heart")
+        commentButton.configure(count: SKDataStore.shared.commentCount(for: post.id), active: false, symbol: "bubble.left")
         giftButton.configure(count: post.giftCount, active: false, symbol: "gift")
         actions.addArrangedSubview(likeButton)
         actions.addArrangedSubview(commentButton)
@@ -568,7 +568,7 @@ final class PostDetailViewController: BaseViewController {
         title.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
         }
-        let count = UILabel(text: String(AppStore.shared.commentCount(for: post.id)).uppercased(), font: SkesteFont.mono(10, weight: .bold), color: Palette.cyan)
+        let count = UILabel(text: String(SKDataStore.shared.commentCount(for: post.id)).uppercased(), font: SkesteFont.mono(10, weight: .bold), color: Palette.cyan)
         commentsHeader.addSubview(count)
         count.snp.makeConstraints { make in
             make.leading.equalTo(title.snp.trailing).offset(8)
@@ -594,7 +594,7 @@ final class PostDetailViewController: BaseViewController {
             commentsStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        let comments = AppStore.shared.comments(for: postID)
+        let comments = SKDataStore.shared.comments(for: postID)
         if comments.isEmpty {
             let empty = UILabel(text: "No comments yet. Start the conversation.", font: SkesteFont.body(13), color: Palette.muted, lines: 0)
             empty.textAlignment = .center
@@ -610,7 +610,7 @@ final class PostDetailViewController: BaseViewController {
             let row = CommentRowView(comment: comment)
             row.onMore = { [weak self] in self?.commentMenu(comment) }
             row.onAvatar = { [weak self] in
-                guard let author = AppStore.shared.user(withID: comment.authorID) else { return }
+                guard let author = SKDataStore.shared.user(withID: comment.authorID) else { return }
                 self?.openAuthor(author)
             }
             commentsStack.addArrangedSubview(row)
@@ -620,7 +620,7 @@ final class PostDetailViewController: BaseViewController {
     private func toggleLike() {
         requireLogin { [weak self] in
             guard let self else { return }
-            guard let liked = AppStore.shared.toggleLike(postID: self.postID), let post = AppStore.shared.post(withID: self.postID) else { return }
+            guard let liked = SKDataStore.shared.toggleLike(postID: self.postID), let post = SKDataStore.shared.post(withID: self.postID) else { return }
             self.likeButton.configure(count: post.likeCount, active: liked, symbol: liked ? "heart.fill" : "heart")
             SkesteHaptics.light()
             self.lastSignature = self.contentSignature()
@@ -658,7 +658,7 @@ final class PostDetailViewController: BaseViewController {
         guard let text = commentField.text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         requireLogin { [weak self] in
             guard let self else { return }
-            guard AppStore.shared.addComment(postID: self.postID, text: text) != nil else {
+            guard SKDataStore.shared.addComment(postID: self.postID, text: text) != nil else {
                 self.showToast("That post is no longer available.", style: .error)
                 return
             }
@@ -683,10 +683,10 @@ final class PostDetailViewController: BaseViewController {
                 self?.push(ReportViewController(target: .comment(commentID: comment.id, postID: comment.postID), source: .home))
             }
         ]
-        if comment.authorID == AppStore.shared.currentUser?.id {
+        if comment.authorID == SKDataStore.shared.currentUser?.id {
             actions.insert(SkesteSheetAction(title: "Delete comment", symbol: "trash", destructive: true) { [weak self] in
                 self?.showConfirm(title: "Delete this comment?", message: "This note will be removed from the story.", confirmTitle: "Delete", destructive: true) {
-                    AppStore.shared.deleteComment(id: comment.id)
+                    SKDataStore.shared.deleteComment(id: comment.id)
                     self?.rebuildContent(preserveOffset: true)
                     self?.lastSignature = self?.contentSignature() ?? ""
                     self?.showToast("Comment deleted.", style: .success)
@@ -697,7 +697,7 @@ final class PostDetailViewController: BaseViewController {
     }
 
     private func openAuthor(_ author: User) {
-        if author.id == AppStore.shared.currentUser?.id {
+        if author.id == SKDataStore.shared.currentUser?.id {
             (tabBarController as? MainTabBarController)?.selectRootTab(.settings)
             return
         }
@@ -705,16 +705,16 @@ final class PostDetailViewController: BaseViewController {
     }
 
     private func showPostMenu() {
-        guard let post = AppStore.shared.post(withID: postID) else { return }
+        guard let post = SKDataStore.shared.post(withID: postID) else { return }
         var actions: [SkesteSheetAction] = [
             SkesteSheetAction(title: "Report this post", symbol: "flag") { [weak self] in
                 self?.push(ReportViewController(target: .post(postID: post.id), source: .home))
             }
         ]
-        if post.authorID == AppStore.shared.currentUser?.id {
+        if post.authorID == SKDataStore.shared.currentUser?.id {
             actions.insert(SkesteSheetAction(title: "Delete this post", symbol: "trash", destructive: true) { [weak self] in
                 self?.showConfirm(title: "Delete this line?", message: "This post and all of its comments will be removed.", confirmTitle: "Delete post", destructive: true) {
-                    AppStore.shared.deletePost(id: post.id)
+                    SKDataStore.shared.deletePost(id: post.id)
                     self?.returnToRootTab(.home)
                     SkesteToast.show("Your post has been removed.", style: .success)
                 }
@@ -726,7 +726,7 @@ final class PostDetailViewController: BaseViewController {
 
 extension PostDetailViewController: UITextFieldDelegate {
     func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
-        if !AppStore.shared.isLoggedIn {
+        if !SKDataStore.shared.isLoggedIn {
             requireLogin { [weak self] in
                 self?.updateInputIdentity()
                 self?.rebuildContent(preserveOffset: true)

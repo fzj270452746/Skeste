@@ -14,7 +14,7 @@ final class EditProfileViewController: BaseViewController {
     private var selectedImage: UIImage?
 
     override func setupView() {
-        guard let user = AppStore.shared.currentUser else {
+        guard let user = SKDataStore.shared.currentUser else {
             showToast("Sign in to edit your profile.", style: .error)
             return
         }
@@ -135,7 +135,7 @@ final class EditProfileViewController: BaseViewController {
         save.addAction(UIAction { [weak self] _ in self?.save() }, for: .touchUpInside)
         contentStack.addArrangedSubview(save)
 
-        let note = UILabel(text: "Your profile is visible to riders in your feed, comments, and private circle.", font: SkesteFont.body(10), color: Palette.muted, lines: 0)
+        let note = UILabel(text: "Your profile is visible to riders in your feed, comments, and coaching sessions.", font: SkesteFont.body(10), color: Palette.muted, lines: 0)
         note.textAlignment = .center
         contentStack.addArrangedSubview(note)
     }
@@ -152,7 +152,7 @@ final class EditProfileViewController: BaseViewController {
 
     private func save() {
         view.endEditing(true)
-        guard let user = AppStore.shared.currentUser else { return }
+        guard let user = SKDataStore.shared.currentUser else { return }
         let name = nameField.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             showToast("Give your profile a name.", style: .error)
@@ -163,10 +163,10 @@ final class EditProfileViewController: BaseViewController {
         if let selectedImage {
             fileName = MediaFiles.saveImage(selectedImage)
         }
-        AppStore.shared.updateProfile(displayName: name, bio: bio, avatarFileName: fileName, avatarAsset: fileName == nil ? nil : nil)
+        SKDataStore.shared.updateProfile(displayName: name, bio: bio, avatarFileName: fileName, avatarAsset: fileName == nil ? nil : nil)
         let resort = resortField.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !resort.isEmpty, resort != user.homeResort {
-            AppStore.shared.updateHomeResort(resort)
+            SKDataStore.shared.updateHomeResort(resort)
         }
         navigationController?.popViewController(animated: true)
         SkesteToast.show("Profile updated.", style: .success)

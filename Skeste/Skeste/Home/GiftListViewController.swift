@@ -150,8 +150,8 @@ final class GiftListViewController: UIViewController {
             make.top.equalToSuperview().offset(18)
         }
 
-        let records = AppStore.shared.gifts(for: postID)
-        let senders = AppStore.shared.giftSenders(for: postID)
+        let records = SKDataStore.shared.gifts(for: postID)
+        let senders = SKDataStore.shared.giftSenders(for: postID)
 
         let kicker = UILabel(text: "STOKE RECEIVED", font: SkesteFont.demibold(9), color: Palette.amber)
         kicker.tracked(2.2)
@@ -199,7 +199,7 @@ final class GiftListViewController: UIViewController {
             contentStack.addArrangedSubview(summary(count: records.count, senders: senders))
             for record in records {
                 guard let gift = Gift.gift(withID: record.giftID) else { continue }
-                let row = GiftLogRow(record: record, gift: gift, sender: AppStore.shared.user(withID: record.senderID))
+                let row = GiftLogRow(record: record, gift: gift, sender: SKDataStore.shared.user(withID: record.senderID))
                 contentStack.addArrangedSubview(row)
             }
         }
@@ -227,7 +227,7 @@ final class GiftListViewController: UIViewController {
         badgeRow.axis = .horizontal
         badgeRow.spacing = -12
         badgeRow.alignment = .center
-        let recentGifts = AppStore.shared.gifts(for: postID).compactMap { Gift.gift(withID: $0.giftID) }
+        let recentGifts = SKDataStore.shared.gifts(for: postID).compactMap { Gift.gift(withID: $0.giftID) }
         var previousBadge: GiftBadgeView?
         for gift in recentGifts.prefix(4) {
             let badge = GiftBadgeView(gift: gift, diameter: 36)

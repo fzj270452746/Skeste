@@ -299,7 +299,7 @@ final class RunTrackerViewController: BaseViewController {
         title.richTracking(-0.7)
         contentStack.addArrangedSubview(title)
         contentStack.setCustomSpacing(6, after: title)
-        let subtitle = UILabel(text: "Real distance, speed, and vertical from your phone. Route, splits, and a recap card you can share with your circle.", font: SkesteFont.body(12), color: Palette.secondary, lines: 0)
+        let subtitle = UILabel(text: "Real distance, speed, and vertical from your phone. Route, splits, and a recap card you can share with your crew.", font: SkesteFont.body(12), color: Palette.secondary, lines: 0)
         subtitle.lineSpacing(3)
         contentStack.addArrangedSubview(subtitle)
         contentStack.setCustomSpacing(14, after: subtitle)
@@ -730,9 +730,9 @@ final class RunTrackerViewController: BaseViewController {
             distanceMeters: distanceMeters,
             verticalMeters: verticalMeters,
             topSpeedKPH: topSpeedKPH,
-            resort: AppStore.shared.currentUser?.homeResort ?? "The mountain"
+            resort: SKDataStore.shared.currentUser?.homeResort ?? "The mountain"
         )
-        AppStore.shared.saveRun(run)
+        SKDataStore.shared.saveRun(run)
         lastSavedRun = run
         didPost = false
         postButton.title = "POST TO FEED"
@@ -953,7 +953,7 @@ final class RunTrackerViewController: BaseViewController {
 
     private func postRecap() {
         guard let run = lastSavedRun, !didPost else { return }
-        let caption = "Logged \(Int(run.verticalMeters.rounded())) m of vertical at \(run.resort). \(Int(run.distanceMeters.rounded())) m · \(timeString(run.duration)) · \(Int(run.topSpeedKPH.rounded())) km/h. Season total: \(Int(AppStore.shared.totalVertical.rounded())) m. — Ridge Lab"
+        let caption = "Logged \(Int(run.verticalMeters.rounded())) m of vertical at \(run.resort). \(Int(run.distanceMeters.rounded())) m · \(timeString(run.duration)) · \(Int(run.topSpeedKPH.rounded())) km/h. Season total: \(Int(SKDataStore.shared.totalVertical.rounded())) m. — Ridge Lab"
         LabShare.postToFeed(caption: caption, tags: ["RidgeLab", run.resort, "Descent"], from: self) { [weak self] success in
             guard let self, success else { return }
             self.didPost = true
@@ -967,7 +967,7 @@ final class RunTrackerViewController: BaseViewController {
             recentStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        let runs = Array(AppStore.shared.runs.prefix(3))
+        let runs = Array(SKDataStore.shared.runs.prefix(3))
         guard !runs.isEmpty else {
             let empty = UILabel(text: "No runs yet. Your next descent starts here.", font: SkesteFont.body(11), color: Palette.muted, lines: 0)
             recentStack.addArrangedSubview(empty)

@@ -134,7 +134,7 @@ final class AuthViewController: BaseViewController {
         let riderIDs = ["u_luna", "u_kai", "u_sofia", "u_ava"]
         for id in riderIDs {
             let avatar = AvatarView(size: 28, showsRing: true)
-            avatar.configure(user: AppStore.shared.user(withID: id))
+            avatar.configure(user: SKDataStore.shared.user(withID: id))
             riderStack.addArrangedSubview(avatar)
         }
         contentView.addSubview(riderStack)
@@ -380,8 +380,8 @@ final class AuthViewController: BaseViewController {
                 return
             }
             let outcome = modeAtSubmit == .login
-                ? AppStore.shared.login(username: username, password: password)
-                : AppStore.shared.register(username: username, password: password)
+                ? SKDataStore.shared.login(username: username, password: password)
+                : SKDataStore.shared.register(username: username, password: password)
             loader.dismiss { [weak self] in
                 self?.isRunning = false
                 self?.handle(outcome)
@@ -417,7 +417,7 @@ final class AuthViewController: BaseViewController {
         isRunning = true
         let loader = SkesteLoadingView.present()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
-            let outcome = AppStore.shared.loginWithApple(appleID: identifier, name: name)
+            let outcome = SKDataStore.shared.loginWithApple(appleID: identifier, name: name)
             loader.dismiss { [weak self] in
                 self?.isRunning = false
                 self?.handle(outcome)

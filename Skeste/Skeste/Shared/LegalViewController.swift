@@ -67,22 +67,23 @@ enum LegalDocument {
             return [
                 ("1. Who can ride", "You must be at least 13 years old and legally able to accept these terms. If you are under the age of majority where you live, a parent or guardian must approve your use of Skeste."),
                 ("2. Your account", "Keep your login details private. You are responsible for activity that happens through your account. Choose a username that does not impersonate another person or brand."),
-                ("3. Respect the circle", "Skeste is a social space for snow sports. Harassment, hate speech, threats, non-consensual imagery, illegal content, and spam are not welcome. Direct messaging is limited to people you follow each other with or have added as friends."),
+                ("3. Respect the mountain", "Skeste is a social space for snow sports. Harassment, hate speech, threats, non-consensual imagery, illegal content, and spam are not welcome. Coaching sessions are limited to a coach you booked and who accepted your request. You must never record or share a private session without the other person's consent."),
                 ("4. Your content", "You keep ownership of the media and text you publish. You grant Skeste a non-exclusive license to display and promote that content inside the app. You must own the rights to every clip, photo, and sound you share."),
                 ("5. Gifts", "Gifts are optional consumable purchases made through the App Store. A completed purchase supports the creator whose post you selected. All purchases are final except where required by applicable law."),
                 ("6. Safety", "Mountain activities involve serious risk. Content in Skeste is not instruction or safety advice. Always ride within your ability, check the forecast, carry rescue equipment, and make decisions with trained partners."),
-                ("7. Moderation", "We may remove content or suspend accounts that break these terms. You can report posts, comments, conversations, and people from inside the app."),
+                ("7. Moderation", "We may remove content or suspend accounts that break these terms. You can report posts, comments, coaching sessions, calls, and people from inside the app. Reports are reviewed promptly."),
                 ("8. Changes", "We may update these terms as the app evolves. The latest version will always be available here. Continued use after an update means you accept the revised terms.")
             ]
         case .privacy:
             return [
-                ("1. What we use", "Your profile details, posts, follows, friend connections, messages, and purchase results are stored to provide the app experience. Media you select is copied into the app's local storage so it can be shown in your feed."),
+                ("1. What we use", "Your profile details, posts, follows, coaching bookings, call metadata, and purchase results are stored to provide the app experience. Media you select is copied into the app's local storage so it can be shown in your feed."),
                 ("2. Location", "The Run Tracker uses your location only while you start a tracked run. Location is used to calculate distance, speed, and vertical descent. You can stop tracking at any time and can change location access in iOS Settings. Snow Desk sends the fixed coordinates of the resort you select to Apple WeatherKit to retrieve a forecast; it does not use your device location for weather."),
-                ("3. Purchases", "Gift purchases are processed by Apple. Skeste receives confirmation that a purchase completed but does not receive your full payment details."),
-                ("4. Sign in with Apple", "If you choose Sign in with Apple, Apple returns a stable account identifier. We use it to keep you signed in. Your name is only shared by Apple the first time you authorize the app."),
-                ("5. Your choices", "You can edit your profile, remove posts, delete comments, delete your account, and clear local app data from iOS Settings. Account deletion removes your profile and related in-app content from this device."),
-                ("6. Children", "Skeste is not directed to children under 13. If we learn that a child under 13 created an account, the account may be removed."),
-                ("7. Contact", "Privacy questions can be sent to the support address listed on the App Store product page. We will respond within a reasonable period.")
+                ("3. Coaching sessions", "When you request a session you share the topic, your description, and your preferred time with that coach. We store the booking status and call metadata such as who started the call, when it happened, and how long it lasted. Skeste does not record the audio or video of a session. Private sessions can only start after the coach accepts the request."),
+                ("4. Purchases", "Gift purchases are processed by Apple. Skeste receives confirmation that a purchase completed but does not receive your full payment details."),
+                ("5. Sign in with Apple", "If you choose Sign in with Apple, Apple returns a stable account identifier. We use it to keep you signed in. Your name is only shared by Apple the first time you authorize the app."),
+                ("6. Your choices", "You can edit your profile, remove posts, delete comments, cancel coaching sessions, delete your account, and clear local app data from iOS Settings. Account deletion removes your profile, coaching history, and related in-app content from this device."),
+                ("7. Children", "Skeste is not directed to children under 13. If we learn that a child under 13 created an account, the account may be removed."),
+                ("8. Contact", "Privacy questions can be sent to the support address listed on the App Store product page. We will respond within a reasonable period.")
             ]
         case .eula:
             return [
@@ -92,7 +93,7 @@ enum LegalDocument {
                 ("4. Purchases", "Consumable gifts are processed through Apple In-App Purchase. Pricing is displayed in your local currency by the App Store. Restore and refund requests are handled by Apple."),
                 ("5. Availability", "We work to keep the app available and reliable, but we cannot promise uninterrupted operation. Features may change as the product develops."),
                 ("6. Termination", "This license ends if you materially breach these terms or delete the application. Sections about ownership, disclaimers, and limitations survive termination."),
-                ("7. Disclaimer", "The application is provided on an as-is and as-available basis. Snow sports are inherently dangerous. Weather data is provided by Apple Weather and is an informational forecast; it may be delayed, incomplete, or inaccurate. Avalanche danger levels shown in the app are reference values, not live bulletin data. The app does not guarantee snow conditions, weather, route safety, or rescue outcomes. Always check official forecasts and your local avalanche bulletin.")
+                ("7. Disclaimer", "The application is provided on an as-is and as-available basis. Snow sports are inherently dangerous. Weather data is provided by Apple Weather and is an informational forecast; it may be delayed, incomplete, or inaccurate. Avalanche danger levels shown in the app are reference values, not live bulletin data. Coaching sessions are advice from independent coaches and are not a guarantee of safety or a substitute for professional instruction on snow. The app does not guarantee snow conditions, weather, route safety, coaching outcomes, or rescue outcomes. Always check official forecasts and your local avalanche bulletin.")
             ]
         case .creatorEULA:
             return [
